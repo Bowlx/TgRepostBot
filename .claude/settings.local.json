@@ -6,7 +6,17 @@
       "Bash(git init *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(python -m py_compile config.py)",
+      "Bash(python -m py_compile models.py)",
+      "Bash(python -m py_compile services/storage.py)",
+      "Bash(python -m py_compile services/translator.py)",
+      "Bash(python -m py_compile services/linkedin.py)",
+      "WebSearch",
+      "mcp__web-reader__webReader",
+      "Bash(python -m py_compile bot/handlers/forward.py)",
+      "Bash(python -m py_compile bot/handlers/channel.py)",
+      "Bash(python -m py_compile bot/main.py)"
     ]
   }
 }

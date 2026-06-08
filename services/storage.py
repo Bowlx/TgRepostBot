@@ -110,3 +110,21 @@ class Storage:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("DELETE FROM pending_posts WHERE user_id = ?", (user_id,))
             await db.commit()
+
+    async def get_all_linkedin_users(self) -> list[User]:
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT * FROM users WHERE linkedin_access_token IS NOT NULL"
+            )
+            rows = await cursor.fetchall()
+            return [
+                User(
+                    user_id=row["user_id"],
+                    source_lang=row["source_lang"],
+                    target_lang=row["target_lang"],
+                    linkedin_access_token=row["linkedin_access_token"],
+                    linkedin_person_urn=row["linkedin_person_urn"],
+                )
+                for row in rows
+            ]

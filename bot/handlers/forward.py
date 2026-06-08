@@ -1,21 +1,20 @@
 from aiogram import Router, types, F
 
-from config import Settings
 from services.storage import Storage
 from services.translator import Translator
 
 router = Router()
 
-# Only handle private messages that are forwarded or contain content
+# Only handle private messages
 router.message.filter(F.chat.type == "private")
 
 
-@router.message(F.forward_date | F.text | F.photo)
-async def handle_forwarded(message: types.Message, storage: Storage, translator: Translator, app_config: Settings) -> None:
-    # Skip if this is a command
-    if message.text and message.text.startswith("/"):
-        return
-
+@router.message(F.forward_date | (F.photo & ~F.forward_date))
+async def handle_forwarded(
+    message: types.Message,
+    storage: Storage,
+    translator: Translator,
+) -> None:
     user = await storage.get_user(message.from_user.id)
     if user is None:
         await message.answer("Сначала нажмите /start")
