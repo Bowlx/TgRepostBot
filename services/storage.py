@@ -16,6 +16,14 @@ class Storage:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
+            await db.execute(
+                """
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY,
                     source_lang TEXT NOT NULL DEFAULT 'ru',
@@ -36,6 +44,28 @@ class Storage:
                 """
             )
             await db.commit()
+
+    # ── Global settings ──────────────────────────────────────
+
+    async def get_setting(self, key: str) -> Optional[str]:
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("SELECT value FROM settings WHERE key = ?", (key,))
+            row = await cursor.fetchone()
+            return row[0] if row else None
+
+    async def set_setting(self, key: str, value: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                (key, value),
+            )
+            await db.commit()
+
+    async def get_all_settings(self) -> dict[str, str]:
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("SELECT key, value FROM settings")
+            rows = await cursor.fetchall()
+            return {row[0]: row[1] for row in rows}
 
     async def get_user(self, user_id: int) -> Optional[User]:
         async with aiosqlite.connect(self.db_path) as db:

@@ -16,7 +16,10 @@
       "mcp__web-reader__webReader",
       "Bash(python -m py_compile bot/handlers/forward.py)",
       "Bash(python -m py_compile bot/handlers/channel.py)",
-      "Bash(python -m py_compile bot/main.py)"
+      "Bash(python -m py_compile bot/main.py)",
+      "Bash(python -m py_compile bot/handlers/setup.py)",
+      "Bash(python -m py_compile bot/handlers/start.py)",
+      "Bash(python -m py_compile bot/handlers/settings.py)"
     ]
   }
 }

@@ -1,8 +1,7 @@
-from aiogram import Router, types, F
+from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from config import Settings
 from services.storage import Storage
 from services.linkedin import LinkedInClient
 
@@ -31,7 +30,15 @@ async def cmd_setlang(message: types.Message, storage: Storage) -> None:
 
 @router.message(Command("auth"))
 async def cmd_auth(message: types.Message, linkedin_client: LinkedInClient) -> None:
-    auth_url = linkedin_client.get_auth_url()
+    try:
+        auth_url = await linkedin_client.get_auth_url()
+    except RuntimeError:
+        await message.answer(
+            "❌ LinkedIn App ещё не настроен.\n"
+            "Сначала настройте API ключи: /setup"
+        )
+        return
+
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Подключить LinkedIn", url=auth_url)]
@@ -41,8 +48,10 @@ async def cmd_auth(message: types.Message, linkedin_client: LinkedInClient) -> N
         "Для подключения LinkedIn:\n\n"
         "1. Нажмите кнопку ниже\n"
         "2. Разрешите доступ\n"
-        "3. Скопируйте код из URL редиректа\n"
-        "4. Отправьте: <code>/callback ВАШ_КОД</code>",
+        "3. После редиректа скопируйте параметр <code>code</code> из URL\n"
+        "4. Отправьте: <code>/callback ВАШ_КОД</code>\n\n"
+        "<i>Пример URL после редиректа:\n"
+        "https://your-domain.com/callback?code=AQTD...</i>",
         reply_markup=keyboard,
     )
 

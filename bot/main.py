@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from bot.handlers import start, settings, channel, forward, post
+from bot.handlers import start, settings, channel, forward, post, setup
 from config import get_settings
 from services.storage import Storage
 from services.translator import Translator
@@ -30,12 +30,8 @@ async def main() -> None:
     storage = Storage(db_path=cfg.database_path)
     await storage.init()
 
-    translator = Translator(api_key=cfg.google_translate_api_key)
-    linkedin = LinkedInClient(
-        client_id=cfg.linkedin_client_id,
-        client_secret=cfg.linkedin_client_secret,
-        redirect_uri=cfg.linkedin_redirect_uri,
-    )
+    translator = Translator(storage=storage)
+    linkedin = LinkedInClient(storage=storage)
 
     bot = Bot(token=cfg.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
@@ -45,9 +41,9 @@ async def main() -> None:
     dp["linkedin"] = linkedin
     dp["config"] = cfg
 
-    dp.message.middleware(service_middleware)
-    dp.channel_post.middleware(service_middleware)
+    dp.update.middleware(service_middleware)
 
+    dp.include_router(setup.router)
     dp.include_router(start.router)
     dp.include_router(settings.router)
     dp.include_router(channel.router)

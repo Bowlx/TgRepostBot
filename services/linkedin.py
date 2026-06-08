@@ -1,6 +1,9 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import aiohttp
+
+if TYPE_CHECKING:
+    from services.storage import Storage
 
 
 class LinkedInClient:
@@ -8,28 +11,38 @@ class LinkedInClient:
     TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
     API_BASE = "https://api.linkedin.com"
 
-    def __init__(self, client_id: str, client_secret: str, redirect_uri: str):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
+    def __init__(self, storage: "Storage"):
+        self.storage = storage
 
-    def get_auth_url(self) -> str:
+    async def _get_credentials(self) -> tuple[str, str, str]:
+        client_id = await self.storage.get_setting("linkedin_client_id")
+        client_secret = await self.storage.get_setting("linkedin_client_secret")
+        redirect_uri = await self.storage.get_setting("linkedin_redirect_uri")
+        if not client_id or not client_secret or not redirect_uri:
+            raise RuntimeError(
+                "LinkedIn не настроен. Используйте /setup"
+            )
+        return client_id, client_secret, redirect_uri
+
+    async def get_auth_url(self) -> str:
+        client_id, _, redirect_uri = await self._get_credentials()
         params = (
             f"?response_type=code"
-            f"&client_id={self.client_id}"
-            f"&redirect_uri={self.redirect_uri}"
+            f"&client_id={client_id}"
+            f"&redirect_uri={redirect_uri}"
             f"&scope=w_member_social"
         )
         return f"{self.AUTH_URL}{params}"
 
     async def exchange_code(self, code: str) -> tuple[str, str]:
         """Exchange auth code for access_token and person URN. Returns (access_token, person_urn)."""
+        client_id, client_secret, redirect_uri = await self._get_credentials()
         data = {
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": self.redirect_uri,
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "client_secret": client_secret,
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(self.TOKEN_URL, data=data) as resp:
