@@ -1,7 +1,6 @@
 import logging
 
-from aiogram import Router, types, Bot
-from aiogram.filters import F
+from aiogram import Router, types, Bot, F
 
 from services.storage import Storage
 from services.translator import Translator
