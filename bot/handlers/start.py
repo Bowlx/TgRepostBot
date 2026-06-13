@@ -15,7 +15,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
 
     # Check if API keys are configured
     settings = await storage.get_all_settings()
-    has_google = bool(settings.get("google_translate_api_key"))
+    has_deepl = bool(settings.get("deepl_api_key"))
     has_linkedin_app = bool(
         settings.get("linkedin_client_id")
         and settings.get("linkedin_client_secret")
@@ -23,7 +23,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
     )
     has_linkedin_auth = bool(user.linkedin_access_token)
 
-    if not has_google or not has_linkedin_app:
+    if not has_deepl or not has_linkedin_app:
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="🚀 Настроить бот", callback_data="setup:start")]
@@ -43,7 +43,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
         f"Я бот для кросспостинга из Telegram в LinkedIn с переводом.\n\n"
         f"<b>📋 Статус:</b>\n"
-        f"🔑 Google Translate: ✅\n"
+        f"🔑 DeepL: ✅\n"
         f"🆔 LinkedIn App: ✅\n"
         f"💼 LinkedIn аккаунт: {'✅ Подключён' if has_linkedin_auth else '❌ Не подключён'}\n"
         f"🔤 Перевод: {user.source_lang} → {user.target_lang}\n\n"

@@ -19,7 +19,15 @@
       "Bash(python -m py_compile bot/main.py)",
       "Bash(python -m py_compile bot/handlers/setup.py)",
       "Bash(python -m py_compile bot/handlers/start.py)",
-      "Bash(python -m py_compile bot/handlers/settings.py)"
+      "Bash(python -m py_compile bot/handlers/settings.py)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(docker compose *)",
+      "Bash(pip install *)",
+      "Bash(python -c \"from aiogram import F; print\\('F import OK'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"from services.translator import Translator; from bot.handlers.setup import router; from bot.handlers.start import router; print\\('ALL IMPORTS OK'\\)\")"
     ]
   }
 }

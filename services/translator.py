@@ -7,7 +7,8 @@ if TYPE_CHECKING:
 
 
 class Translator:
-    BASE_URL = "https://translation.googleapis.com/language/translate/v2"
+    # DeepL API Free uses a different host than the paid API
+    BASE_URL = "https://api-free.deepl.com/v2/translate"
 
     def __init__(self, storage: "Storage"):
         self.storage = storage
@@ -16,21 +17,20 @@ class Translator:
         if not text.strip():
             return text
 
-        api_key = await self.storage.get_setting("google_translate_api_key")
+        api_key = await self.storage.get_setting("deepl_api_key")
         if not api_key:
             raise RuntimeError(
-                "Ключ Google Translate не настроен. Используйте /setup"
+                "Ключ DeepL не настроен. Используйте /setup"
             )
 
-        params = {
-            "key": api_key,
-            "q": text,
-            "source": source_lang,
-            "target": target_lang,
-            "format": "text",
+        data = {
+            "auth_key": api_key,
+            "text": text,
+            "source_lang": source_lang.upper(),
+            "target_lang": target_lang.upper(),
         }
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.BASE_URL, data=params) as resp:
+            async with session.post(self.BASE_URL, data=data) as resp:
                 resp.raise_for_status()
-                data = await resp.json()
-                return data["data"]["translations"][0]["translatedText"]
+                result = await resp.json()
+                return result["translations"][0]["text"]

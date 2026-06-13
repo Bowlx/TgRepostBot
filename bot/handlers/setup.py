@@ -12,12 +12,10 @@ router = Router()
 # ── FSM States ─────────────────────────────────────────────
 
 class SetupStates(StatesGroup):
-    waiting_google_key = State()
+    waiting_deepl_key = State()
     waiting_linkedin_client_id = State()
     waiting_linkedin_client_secret = State()
     waiting_linkedin_redirect_uri = State()
-    waiting_source_lang = State()
-    waiting_target_lang = State()
 
 
 # ── Status checker ─────────────────────────────────────────
@@ -25,7 +23,7 @@ class SetupStates(StatesGroup):
 async def get_setup_status(storage: Storage) -> dict[str, bool]:
     settings = await storage.get_all_settings()
     return {
-        "google_translate_api_key": bool(settings.get("google_translate_api_key")),
+        "deepl_api_key": bool(settings.get("deepl_api_key")),
         "linkedin_client_id": bool(settings.get("linkedin_client_id")),
         "linkedin_client_secret": bool(settings.get("linkedin_client_secret")),
         "linkedin_redirect_uri": bool(settings.get("linkedin_redirect_uri")),
@@ -35,7 +33,7 @@ async def get_setup_status(storage: Storage) -> dict[str, bool]:
 def build_status_text(status: dict[str, bool]) -> str:
     lines = ["<b>⚙️ Состояние настройки:</b>\n"]
     labels = {
-        "google_translate_api_key": "🔑 Google Translate API Key",
+        "deepl_api_key": "🔑 DeepL API Key",
         "linkedin_client_id": "🆔 LinkedIn Client ID",
         "linkedin_client_secret": "🔐 LinkedIn Client Secret",
         "linkedin_redirect_uri": "🔗 LinkedIn Redirect URI",
@@ -72,17 +70,19 @@ async def cmd_setup(message: types.Message, storage: Storage) -> None:
 async def callback_setup_start(callback: types.CallbackQuery, storage: Storage, state: FSMContext) -> None:
     status = await get_setup_status(storage)
 
-    if not status["google_translate_api_key"]:
+    if not status["deepl_api_key"]:
         await callback.message.edit_text(
-            "<b>Шаг 1 из 4: Google Translate API Key</b>\n\n"
-            "1. Откройте <a href='https://console.cloud.google.com/'>Google Cloud Console</a>\n"
-            "2. Создайте проект → включите <b>Cloud Translation API</b>\n"
-            "3. <b>APIs & Services → Credentials → Create API Key</b>\n"
-            "4. Скопируйте ключ и отправьте его сюда:\n\n"
-            "<i>Формат: AIzaSy...</i>",
+            "<b>Шаг 1 из 4: DeepL API Key</b>\n\n"
+            "1. Откройте <a href='https://www.deepl.com/pro#developer'>deepl.com/pro#developer</a>\n"
+            "2. Выберите план <b>Free</b> (бесплатно, без карты — 500 000 симв/мес)\n"
+            "3. Зарегиструйтесь по email\n"
+            "4. В <a href='https://www.deepl.com/pro-account/usage'>настройках аккаунта</a> найдите <b>Authentication Key</b>\n"
+            "5. Скопируйте ключ и отправьте его сюда:\n\n"
+            "<i>Формат: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx</i>\n"
+            "<i>(заканчивается на :fx для бесплатного плана)</i>",
             disable_web_page_preview=True,
         )
-        await state.set_state(SetupStates.waiting_google_key)
+        await state.set_state(SetupStates.waiting_deepl_key)
     elif not status["linkedin_client_id"]:
         await _ask_linkedin_client_id(callback.message, state)
     elif not status["linkedin_client_secret"]:
@@ -97,15 +97,15 @@ async def callback_setup_start(callback: types.CallbackQuery, storage: Storage, 
 
 # ── Step handlers ──────────────────────────────────────────
 
-@router.message(SetupStates.waiting_google_key)
-async def process_google_key(message: types.Message, storage: Storage, state: FSMContext) -> None:
+@router.message(SetupStates.waiting_deepl_key)
+async def process_deepl_key(message: types.Message, storage: Storage, state: FSMContext) -> None:
     key = message.text.strip()
     if len(key) < 10:
         await message.answer("❌ Ключ слишком короткий. Попробуйте ещё раз:")
         return
 
-    await storage.set_setting("google_translate_api_key", key)
-    await message.answer("✅ Google Translate API Key сохранён!")
+    await storage.set_setting("deepl_api_key", key)
+    await message.answer("✅ DeepL API Key сохранён!")
     await _ask_linkedin_client_id(message, state)
 
 
@@ -186,7 +186,7 @@ async def process_linkedin_redirect_uri(message: types.Message, storage: Storage
 @router.callback_query(F.data == "setup:reset")
 async def callback_setup_reset(callback: types.CallbackQuery, storage: Storage) -> None:
     for key in [
-        "google_translate_api_key",
+        "deepl_api_key",
         "linkedin_client_id",
         "linkedin_client_secret",
         "linkedin_redirect_uri",
@@ -204,10 +204,5 @@ async def callback_setup_reset(callback: types.CallbackQuery, storage: Storage) 
 
 @router.callback_query(F.data == "setup:go_auth")
 async def callback_go_auth(callback: types.CallbackQuery) -> None:
-    from services.linkedin import LinkedInClient
-
-    # We need storage and linkedin_client from middleware data
-    # Since this is a callback_query, middleware doesn't inject them yet
-    # Redirect user to use /auth command instead
     await callback.message.answer("Используйте команду /auth для подключения LinkedIn")
     await callback.answer()

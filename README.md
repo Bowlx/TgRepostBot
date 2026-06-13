@@ -6,7 +6,7 @@ Telegram → LinkedIn кросспостинг бот с автоматичес�
 
 - 🔄 Автоматический кросспостинг из Telegram каналов в LinkedIn
 - 📝 Ручная пересылка постов через бота
-- 🌐 Автоматический перевод текста (Google Translate)
+- 🌐 Автоматический перевод текста (DeepL — бесплатно, без карты)
 - 🖼️ Перенос изображений
 - ⚙️ Полная настройка через Telegram — без редактирования файлов
 - 🐙 Пошаговый wizard `/setup` для новичков
@@ -66,7 +66,7 @@ docker compose logs -f    # проверить что запустился
 1. Откройте бота в Telegram → нажмите **Start**
 2. Бот увидит, что не настроен → нажмите **🚀 Настроить бот**
 3. Пройдите 4 шага wizard'а:
-   - 🔑 **Google Translate API Key** — бот даст ссылку и инструкцию
+   - 🔑 **DeepL API Key** — бот даст ссылку и инструкцию
    - 🆔 **LinkedIn Client ID** — ссылка на LinkedIn Developers + инструкция
    - 🔐 **LinkedIn Client Secret**
    - 🔗 **LinkedIn Redirect URI**
@@ -77,14 +77,15 @@ docker compose logs -f    # проверить что запустился
 ### Как получить API ключи (подробно)
 
 <details>
-<summary>🔑 Google Translate API Key</summary>
+<summary>🔑 DeepL API Key (бесплатно, без карты)</summary>
 
-1. Откройте [Google Cloud Console](https://console.cloud.google.com/)
-2. Создайте проект (или выберите существующий)
-3. В поиске введите **Cloud Translation API** → включите
-4. Перейдите в **APIs & Services → Credentials**
-5. Нажмите **Create Credentials → API Key**
-6. Скопируйте ключ
+1. Откройте [deepl.com/pro#developer](https://www.deepl.com/pro#developer)
+2. Выберите план **Free** (500 000 символов/мес — бесплатно, карта НЕ нужна)
+3. Зарегистрируйтесь по email
+4. В [настройках аккаунта](https://www.deepl.com/pro-account/usage) найдите **Authentication Key**
+5. Скопируйте ключ (заканчивается на `:fx` для бесплатного плана)
+
+> DeepL переводит лучше Google, особенно для делового/технического текста.
 
 </details>
 
