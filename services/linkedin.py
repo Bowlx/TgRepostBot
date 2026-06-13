@@ -26,11 +26,13 @@ class LinkedInClient:
 
     async def get_auth_url(self) -> str:
         client_id, _, redirect_uri = await self._get_credentials()
+        # openid + profile → required to call /userinfo (get person ID via `sub`)
+        # w_member_social → required to publish posts
         params = (
             f"?response_type=code"
             f"&client_id={client_id}"
             f"&redirect_uri={redirect_uri}"
-            f"&scope=w_member_social"
+            f"&scope=openid%20profile%20w_member_social"
         )
         return f"{self.AUTH_URL}{params}"
 
@@ -50,11 +52,13 @@ class LinkedInClient:
                 token_data = await resp.json()
                 access_token = token_data["access_token"]
 
+            # /userinfo (OpenID Connect) returns the member ID in the `sub` field.
+            # Requires the `openid` and `profile` scopes (auto-approved).
             headers = {"Authorization": f"Bearer {access_token}"}
-            async with session.get(f"{self.API_BASE}/v2/me", headers=headers) as resp:
+            async with session.get(f"{self.API_BASE}/v2/userinfo", headers=headers) as resp:
                 resp.raise_for_status()
-                me_data = await resp.json()
-                person_id = me_data["id"]
+                userinfo = await resp.json()
+                person_id = userinfo["sub"]
                 person_urn = f"urn:li:person:{person_id}"
 
             return access_token, person_urn

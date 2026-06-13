@@ -95,8 +95,11 @@ docker compose logs -f    # проверить что запустился
 1. Откройте [LinkedIn Developers](https://www.linkedin.com/developers/)
 2. Нажмите **Create App**
 3. Заполните: название, LinkedIn Page, язык
-4. В разделе **Products** включите **Share on LinkedIn**
-5. В разделе **Auth**:
+4. В разделе **Settings** → подтвердите приложение (**Verify**)
+5. В разделе **Products** включите ОБА продукта:
+   - **Share on LinkedIn** (для публикации постов)
+   - **Sign In with LinkedIn using OpenID Connect** (для получения ID пользователя)
+6. В разделе **Auth**:
    - Добавьте Redirect URL: `https://localhost` (для тестирования) или ваш домен
    - Скопируйте **Client ID** и **Client Secret**
 

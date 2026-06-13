@@ -88,8 +88,11 @@ async def _ask_linkedin_client_id(message: types.Message, state: FSMContext) -> 
         "<b>Шаг 1 из 3: LinkedIn Client ID</b>\n\n"
         "1. Откройте <a href='https://www.linkedin.com/developers/'>LinkedIn Developers</a>\n"
         "2. Нажмите <b>Create App</b> → заполните данные\n"
-        "3. В разделе <b>Products</b> включите <b>Share on LinkedIn</b>\n"
-        "4. Скопируйте <b>Client ID</b> из раздела <b>Auth</b> и отправьте сюда:",
+        "3. В разделе <b>Settings</b> — подтвердите приложение (Verify)\n"
+        "4. В разделе <b>Products</b> включите ОБА:\n"
+        "   • <b>Share on LinkedIn</b>\n"
+        "   • <b>Sign In with LinkedIn using OpenID Connect</b>\n"
+        "5. Скопируйте <b>Client ID</b> из раздела <b>Auth</b> и отправьте сюда:",
         disable_web_page_preview=True,
     )
 

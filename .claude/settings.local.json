@@ -28,7 +28,8 @@
       "Bash(python -c \"from aiogram import F; print\\('F import OK'\\)\")",
       "Bash(python -c ' *)",
       "Bash(python -c \"from services.translator import Translator; from bot.handlers.setup import router; from bot.handlers.start import router; print\\('ALL IMPORTS OK'\\)\")",
-      "Bash(python -c \"from services.translator import Translator; from bot.handlers.setup import router; from bot.handlers.start import router; from bot.handlers.settings import router; print\\('ALL OK'\\)\")"
+      "Bash(python -c \"from services.translator import Translator; from bot.handlers.setup import router; from bot.handlers.start import router; from bot.handlers.settings import router; print\\('ALL OK'\\)\")",
+      "Bash(python -c \"from services.linkedin import LinkedInClient; from bot.handlers.setup import router; print\\('ALL OK'\\)\")"
     ]
   }
 }
