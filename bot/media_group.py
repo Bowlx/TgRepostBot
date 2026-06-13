@@ -52,23 +52,26 @@ class MediaGroupAggregator:
             await callback([message])
             return
 
+        # Key by chat + group so two chats with the same group id never mix.
+        key = f"{message.chat.id}:{group_id}"
+
         async with self._lock:
-            self._buffers[group_id].append(message)
+            self._buffers[key].append(message)
             # Reset the timer for this group (a new message arrived).
-            existing = self._tasks.get(group_id)
+            existing = self._tasks.get(key)
             if existing is not None:
                 existing.cancel()
-            self._tasks[group_id] = asyncio.create_task(self._finalize(group_id, callback))
+            self._tasks[key] = asyncio.create_task(self._finalize(key, callback))
 
-    async def _finalize(self, group_id: str, callback: GroupCallback) -> None:
+    async def _finalize(self, key: str, callback: GroupCallback) -> None:
         try:
             await asyncio.sleep(self.delay)
         except asyncio.CancelledError:
             return
 
         async with self._lock:
-            messages = self._buffers.pop(group_id, [])
-            self._tasks.pop(group_id, None)
+            messages = self._buffers.pop(key, [])
+            self._tasks.pop(key, None)
 
         if not messages:
             return
@@ -76,4 +79,4 @@ class MediaGroupAggregator:
         try:
             await callback(messages)
         except Exception:
-            logger.exception("Error processing media group %s", group_id)
+            logger.exception("Error processing media group %s", key)
