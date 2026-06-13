@@ -1,56 +1,69 @@
+import asyncio
 import re
 
 import aiohttp
+from deep_translator import GoogleTranslator
 
 
 class Translator:
     """
-    MyMemory translation API.
+    Keyless translation with automatic fallback.
 
-    Free, no API key required (5000 chars/day anonymous, 50000 with email).
-    MyMemory caps a single request at 500 chars, so we chunk long texts on
-    paragraph/sentence boundaries, translate each piece, and rejoin them.
-    API docs: https://mymemory.translated.net/doc/spec.php
+    Primary: deep-translator's GoogleTranslator — scrapes the free Google
+    Translate web endpoint (no API key, no credit card, 5000 chars/request).
+    Fallback: MyMemory REST API (no key; 500 chars/request, 5000/day anonymous,
+    50000/day with /setemail) — used if the Google endpoint is unavailable.
     """
 
-    BASE_URL = "https://api.mymemory.translated.net/get"
-    MAX_QUERY = 500  # MyMemory per-request limit (chars)
+    # Google free endpoint allows ~5000 chars per request (10x MyMemory).
+    MAX_QUERY = 5000
+    MYMEMORY_URL = "https://api.mymemory.translated.net/get"
 
     def __init__(self, storage=None):
-        # storage kept for interface compatibility (optional email to lift daily limit)
+        # storage is optional; used to read the MyMemory email that lifts the
+        # daily limit to 50000 chars (only matters for the fallback path).
         self.storage = storage
 
     async def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         if not text.strip():
             return text
 
-        email = ""
-        if self.storage is not None:
-            email = (await self.storage.get_setting("mymemory_email")) or ""
-
         chunks = split_text(text, self.MAX_QUERY)
         translated_parts: list[str] = []
         for chunk in chunks:
             translated_parts.append(
-                await self._translate_chunk(chunk, source_lang, target_lang, email)
+                await self._translate_chunk(chunk, source_lang, target_lang)
             )
         return "\n".join(translated_parts)
 
-    async def _translate_chunk(
-        self, text: str, source_lang: str, target_lang: str, email: str
-    ) -> str:
-        params = {
-            "q": text,
-            "langpair": f"{source_lang}|{target_lang}",
-        }
-        if email:
-            params["de"] = email
+    async def _translate_chunk(self, text: str, source_lang: str, target_lang: str) -> str:
+        # deep-translator is synchronous (uses `requests`); run it in a worker
+        # thread so it never blocks the asyncio event loop.
+        try:
+            return await asyncio.to_thread(
+                lambda: GoogleTranslator(source=source_lang, target=target_lang).translate(text)
+            )
+        except Exception:
+            # Google endpoint failed (rate limit / blocked / changed) → MyMemory.
+            return await self._mymemory(text, source_lang, target_lang)
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.BASE_URL, params=params) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                return data["responseData"]["translatedText"]
+    async def _mymemory(self, text: str, source_lang: str, target_lang: str) -> str:
+        # MyMemory caps requests at 500 chars, so re-chunk for this path.
+        email = ""
+        if self.storage is not None:
+            email = (await self.storage.get_setting("mymemory_email")) or ""
+
+        parts: list[str] = []
+        for sub in split_text(text, 500):
+            params = {"q": sub, "langpair": f"{source_lang}|{target_lang}"}
+            if email:
+                params["de"] = email
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.MYMEMORY_URL, params=params) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    parts.append(data["responseData"]["translatedText"])
+        return "\n".join(parts)
 
 
 # ── Chunking helpers ───────────────────────────────────────
@@ -62,7 +75,6 @@ def split_text(text: str, limit: int = 500) -> list[str]:
     if len(text) <= limit:
         return [text]
 
-    # 1) Break on newlines (paragraphs/lines).
     pieces: list[str] = []
     for line in text.split("\n"):
         if len(line) <= limit:
@@ -70,7 +82,6 @@ def split_text(text: str, limit: int = 500) -> list[str]:
         else:
             pieces.extend(_split_by_sentence(line, limit))
 
-    # 2) Greedily pack pieces back into chunks <= limit.
     chunks: list[str] = []
     current = ""
     for piece in pieces:
@@ -87,7 +98,7 @@ def split_text(text: str, limit: int = 500) -> list[str]:
 
 
 def _split_by_sentence(text: str, limit: int) -> list[str]:
-    """Split a long line on sentence boundaries (.!?), then words."""
+    """Split a long line on sentence boundaries (.!?…), then words."""
     sentences = re.split(r"(?<=[.!?…])\s+", text)
     pieces: list[str] = []
     for sent in sentences:
@@ -110,7 +121,6 @@ def _split_by_words(text: str, limit: int) -> list[str]:
     current = ""
     for word in words:
         token = word
-        # A single token longer than the limit: slice it into pieces.
         while len(token) > limit:
             if current:
                 chunks.append(current)
