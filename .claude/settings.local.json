@@ -33,7 +33,10 @@
       "Bash(python -c \"from services.storage import Storage; from bot.handlers.settings import router; from bot.handlers.forward import router; from bot.handlers.channel import router; from bot.handlers.start import router; print\\('ALL OK'\\)\")",
       "Bash(python -m py_compile bot/media_group.py)",
       "Bash(python -c \"from bot.media_group import MediaGroupAggregator, extract_group_content; from bot.handlers.channel import router; from bot.handlers.forward import router; print\\('ALL OK'\\)\")",
-      "Bash(python -c \"from bot.media_group import MediaGroupAggregator, extract_group_content; print\\('OK'\\)\")"
+      "Bash(python -c \"from bot.media_group import MediaGroupAggregator, extract_group_content; print\\('OK'\\)\")",
+      "Bash(python -m py_compile bot/text_format.py)",
+      "Bash(python -m py_compile bot/handlers/approval.py)",
+      "Bash(python -c \"from bot.handlers import start, settings, channel, forward, post, setup, approval; from bot.main import main; print\\('ALL OK'\\)\")"
     ]
   }
 }

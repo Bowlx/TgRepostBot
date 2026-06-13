@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from bot.handlers import start, settings, channel, forward, post, setup
+from bot.handlers import start, settings, channel, forward, post, setup, approval
 from config import get_settings
 from services.storage import Storage
 from services.translator import Translator
@@ -46,6 +46,7 @@ async def main() -> None:
     dp.include_router(setup.router)
     dp.include_router(start.router)
     dp.include_router(settings.router)
+    dp.include_router(approval.router)
     dp.include_router(channel.router)
     dp.include_router(forward.router)
     dp.include_router(post.router)

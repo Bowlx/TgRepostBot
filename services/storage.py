@@ -4,7 +4,7 @@ from typing import Optional
 
 import aiosqlite
 
-from models import User, PendingPost
+from models import User, PendingPost, Approval
 
 
 class Storage:
@@ -29,22 +29,35 @@ class Storage:
                     source_lang TEXT NOT NULL DEFAULT 'ru',
                     target_lang TEXT NOT NULL DEFAULT 'en',
                     translate_enabled INTEGER NOT NULL DEFAULT 1,
+                    approve_enabled INTEGER NOT NULL DEFAULT 0,
                     linkedin_access_token TEXT,
                     linkedin_person_urn TEXT
                 )
                 """
             )
-            # Migration: add translate_enabled column for existing databases
-            try:
-                await db.execute(
-                    "ALTER TABLE users ADD COLUMN translate_enabled INTEGER NOT NULL DEFAULT 1"
-                )
-            except aiosqlite.OperationalError:
-                pass  # Column already exists
+            # Migrations: add columns for existing databases
+            for col, default in [("translate_enabled", 1), ("approve_enabled", 0)]:
+                try:
+                    await db.execute(
+                        f"ALTER TABLE users ADD COLUMN {col} INTEGER NOT NULL DEFAULT {default}"
+                    )
+                except aiosqlite.OperationalError:
+                    pass  # Column already exists
             await db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS pending_posts (
                     user_id INTEGER PRIMARY KEY,
+                    original_text TEXT NOT NULL,
+                    translated_text TEXT NOT NULL,
+                    photo_file_ids TEXT NOT NULL DEFAULT '[]'
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pending_approvals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
                     original_text TEXT NOT NULL,
                     translated_text TEXT NOT NULL,
                     photo_file_ids TEXT NOT NULL DEFAULT '[]'
@@ -89,6 +102,7 @@ class Storage:
                 source_lang=row["source_lang"],
                 target_lang=row["target_lang"],
                 translate_enabled=bool(row["translate_enabled"]),
+                approve_enabled=bool(row["approve_enabled"]),
                 linkedin_access_token=row["linkedin_access_token"],
                 linkedin_person_urn=row["linkedin_person_urn"],
             )
@@ -114,6 +128,14 @@ class Storage:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "UPDATE users SET translate_enabled = ? WHERE user_id = ?",
+                (1 if enabled else 0, user_id),
+            )
+            await db.commit()
+
+    async def set_approve_enabled(self, user_id: int, enabled: bool) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE users SET approve_enabled = ? WHERE user_id = ?",
                 (1 if enabled else 0, user_id),
             )
             await db.commit()
@@ -171,8 +193,55 @@ class Storage:
                     source_lang=row["source_lang"],
                     target_lang=row["target_lang"],
                     translate_enabled=bool(row["translate_enabled"]),
+                    approve_enabled=bool(row["approve_enabled"]),
                     linkedin_access_token=row["linkedin_access_token"],
                     linkedin_person_urn=row["linkedin_person_urn"],
                 )
                 for row in rows
             ]
+
+    # ── Approval queue (auto-mode approval gate) ─────────────
+
+    async def create_approval(
+        self, user_id: int, original_text: str, translated_text: str, photo_file_ids: list[str]
+    ) -> int:
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                INSERT INTO pending_approvals (user_id, original_text, translated_text, photo_file_ids)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user_id, original_text, translated_text, json.dumps(photo_file_ids)),
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    async def get_approval(self, approval_id: int) -> Optional[Approval]:
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT * FROM pending_approvals WHERE id = ?", (approval_id,)
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return Approval(
+                id=row["id"],
+                user_id=row["user_id"],
+                original_text=row["original_text"],
+                translated_text=row["translated_text"],
+                photo_file_ids=json.loads(row["photo_file_ids"]),
+            )
+
+    async def update_approval_text(self, approval_id: int, translated_text: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE pending_approvals SET translated_text = ? WHERE id = ?",
+                (translated_text, approval_id),
+            )
+            await db.commit()
+
+    async def delete_approval(self, approval_id: int) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM pending_approvals WHERE id = ?", (approval_id,))
+            await db.commit()

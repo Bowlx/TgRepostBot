@@ -49,6 +49,32 @@ async def cmd_translate(message: types.Message, storage: Storage) -> None:
     )
 
 
+@router.message(Command("approve"))
+async def cmd_approve(message: types.Message, storage: Storage) -> None:
+    """Toggle approval gate for auto-mode channel posts: /approve on|off"""
+    parts = message.text.split()
+    if len(parts) != 2 or parts[1].lower() not in ("on", "off", "вкл", "выкл"):
+        await message.answer(
+            "❌ Использование: <code>/approve on</code> или <code>/approve off</code>\n\n"
+            "<b>on</b> — присылать превью поста и ждать подтверждения\n"
+            "<b>off</b> — публиковать автоматически (по умолчанию)"
+        )
+        return
+
+    enabled = parts[1].lower() in ("on", "вкл")
+    await storage.set_approve_enabled(message.from_user.id, enabled)
+    status = "включён" if enabled else "отключён"
+    await message.answer(
+        f"✅ Режим подтверждения <b>{status}</b>.\n"
+        + (
+            "Новые посты из канала будут приходить сюда с кнопками "
+            "[✅ Опубликовать] [✏️ Изменить] [❌ Отклонить]."
+            if enabled
+            else "Посты из канала публикуются автоматически."
+        )
+    )
+
+
 @router.message(Command("setemail"))
 async def cmd_setemail(message: types.Message, storage: Storage) -> None:
     """Set MyMemory email to raise the daily translation limit to 50000 chars."""

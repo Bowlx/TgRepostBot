@@ -45,7 +45,8 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         f"🌐 Переводчик: MyMemory ✅\n"
         f"🆔 LinkedIn App: ✅\n"
         f"💼 LinkedIn аккаунт: {'✅ Подключён' if has_linkedin_auth else '❌ Не подключён'}\n"
-        f"🔤 Перевод: {'✅ вкл' if user.translate_enabled else '⏸ off'} ({user.source_lang} → {user.target_lang})\n\n"
+        f"🔤 Перевод: {'✅ вкл' if user.translate_enabled else '⏸ off'} ({user.source_lang} → {user.target_lang})\n"
+        f"🔔 Подтверждение постов: {'✅ вкл' if user.approve_enabled else '⏸ off'}\n\n"
     )
 
     if not has_linkedin_auth:
@@ -63,6 +64,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
             "• <code>/post</code> — опубликовать\n"
             "• <code>/setlang ru en</code> — сменить языки\n"
             "• <code>/translate off</code> — отключить перевод\n"
+            "• <code>/approve on</code> — подтверждение постов перед публикацией\n"
             "• <code>/setemail ваш@email</code> — поднять лимит переводов\n"
             "• <code>/setup</code> — перенастроить LinkedIn"
         )
