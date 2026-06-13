@@ -28,6 +28,25 @@ async def cmd_setlang(message: types.Message, storage: Storage) -> None:
     await message.answer(f"✅ Языки перевода обновлены: <b>{source_lang} → {target_lang}</b>")
 
 
+@router.message(Command("setemail"))
+async def cmd_setemail(message: types.Message, storage: Storage) -> None:
+    """Set MyMemory email to raise the daily translation limit to 50000 chars."""
+    parts = message.text.split(maxsplit=1)
+    if len(parts) != 2 or "@" not in parts[1] or "." not in parts[1]:
+        await message.answer(
+            "❌ Использование: <code>/setemail ваш@email.com</code>\n\n"
+            "Email повышает лимит переводов MyMemory с 5000 до 50 000 симв/день."
+        )
+        return
+
+    email = parts[1].strip()
+    await storage.set_setting("mymemory_email", email)
+    await message.answer(
+        f"✅ Email сохранён: <b>{email}</b>\n"
+        f"Лимит переводов повышен до 50 000 симв/день."
+    )
+
+
 @router.message(Command("auth"))
 async def cmd_auth(message: types.Message, linkedin_client: LinkedInClient) -> None:
     try:

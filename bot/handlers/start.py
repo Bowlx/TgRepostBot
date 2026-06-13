@@ -13,9 +13,8 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
     if user is None:
         user = await storage.create_user(message.from_user.id)
 
-    # Check if API keys are configured
+    # Check if LinkedIn app is configured (translator needs no setup)
     settings = await storage.get_all_settings()
-    has_deepl = bool(settings.get("deepl_api_key"))
     has_linkedin_app = bool(
         settings.get("linkedin_client_id")
         and settings.get("linkedin_client_secret")
@@ -23,7 +22,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
     )
     has_linkedin_auth = bool(user.linkedin_access_token)
 
-    if not has_deepl or not has_linkedin_app:
+    if not has_linkedin_app:
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="🚀 Настроить бот", callback_data="setup:start")]
@@ -32,8 +31,8 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         await message.answer(
             f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
             f"Я бот для кросспостинга из Telegram в LinkedIn с переводом.\n\n"
-            f"⚠️ <b>Бот ещё не настроен.</b> Нужно добавить API ключи.\n"
-            f"Нажмите кнопку ниже — я проведу вас пошагово 👇",
+            f"⚠️ <b>Нужно настроить LinkedIn App.</b>\n"
+            f"Нажмите кнопку ниже — я проведу вас пошагово (3 шага) 👇",
             reply_markup=keyboard,
         )
         return
@@ -43,7 +42,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
         f"Я бот для кросспостинга из Telegram в LinkedIn с переводом.\n\n"
         f"<b>📋 Статус:</b>\n"
-        f"🔑 DeepL: ✅\n"
+        f"🌐 Переводчик: MyMemory ✅\n"
         f"🆔 LinkedIn App: ✅\n"
         f"💼 LinkedIn аккаунт: {'✅ Подключён' if has_linkedin_auth else '❌ Не подключён'}\n"
         f"🔤 Перевод: {user.source_lang} → {user.target_lang}\n\n"
@@ -63,6 +62,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
             "• Перешлите пост — перевод + превью\n"
             "• <code>/post</code> — опубликовать\n"
             "• <code>/setlang ru en</code> — сменить языки\n"
-            "• <code>/setup</code> — перенастроить API ключи"
+            "• <code>/setemail ваш@email</code> — поднять лимит переводов\n"
+            "• <code>/setup</code> — перенастроить LinkedIn"
         )
         await message.answer(welcome)

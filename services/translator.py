@@ -1,36 +1,38 @@
-from typing import TYPE_CHECKING
-
 import aiohttp
-
-if TYPE_CHECKING:
-    from services.storage import Storage
 
 
 class Translator:
-    # DeepL API Free uses a different host than the paid API
-    BASE_URL = "https://api-free.deepl.com/v2/translate"
+    """
+    MyMemory translation API.
 
-    def __init__(self, storage: "Storage"):
+    Free, no API key required (5000 chars/day anonymous, 50000 with email).
+    API docs: https://mymemory.translated.net/doc/spec.php
+    """
+
+    BASE_URL = "https://api.mymemory.translated.net/get"
+
+    def __init__(self, storage=None):
+        # storage kept for interface compatibility, MyMemory doesn't need a key
         self.storage = storage
 
     async def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         if not text.strip():
             return text
 
-        api_key = await self.storage.get_setting("deepl_api_key")
-        if not api_key:
-            raise RuntimeError(
-                "Ключ DeepL не настроен. Используйте /setup"
-            )
+        # Optionally use a registered email to raise the daily limit to 50000 chars.
+        email = ""
+        if self.storage is not None:
+            email = (await self.storage.get_setting("mymemory_email")) or ""
 
-        data = {
-            "auth_key": api_key,
-            "text": text,
-            "source_lang": source_lang.upper(),
-            "target_lang": target_lang.upper(),
+        params = {
+            "q": text,
+            "langpair": f"{source_lang}|{target_lang}",
         }
+        if email:
+            params["de"] = email
+
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.BASE_URL, data=data) as resp:
+            async with session.get(self.BASE_URL, params=params) as resp:
                 resp.raise_for_status()
-                result = await resp.json()
-                return result["translations"][0]["text"]
+                data = await resp.json()
+                return data["responseData"]["translatedText"]
