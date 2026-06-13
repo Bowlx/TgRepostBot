@@ -49,7 +49,7 @@ async def handle_approval_callback(
     if action == "pub":
         await _publish(callback, bot, storage, linkedin_client, approval)
     elif action == "edit":
-        await _start_edit(callback, state, approval_id)
+        await _start_edit(callback, state, storage, approval_id)
     elif action == "skip":
         await _skip(callback, storage, approval_id)
     else:
@@ -90,12 +90,20 @@ async def _publish(callback, bot, storage, linkedin_client, approval) -> None:
     await callback.answer()
 
 
-async def _start_edit(callback, state, approval_id) -> None:
+async def _start_edit(callback, state, storage, approval_id) -> None:
+    approval = await storage.get_approval(approval_id)
     await state.set_state(EditState.waiting_new_text)
     await state.update_data(approval_id=approval_id)
+    # Telegram can't pre-fill the input field, so send the current text as a
+    # separate plain message — easy to long-press → Copy → paste → edit.
+    if approval:
+        await callback.message.answer(
+            f"📋 Текущий текст (скопируйте его, отредактируйте и пришлите обратно):\n\n"
+            f"{approval.translated_text}"
+        )
     await callback.message.answer(
-        "✏️ Отправьте новый текст поста.\n"
-        "<i>(текущий текст останется, если отправите /cancel)</i>"
+        "✏️ Пришлите новый текст поста.\n"
+        "<i>Отправьте /cancel, чтобы оставить текущий без изменений.</i>"
     )
     await callback.answer()
 
