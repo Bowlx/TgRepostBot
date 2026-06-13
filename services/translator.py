@@ -99,18 +99,32 @@ def _split_by_sentence(text: str, limit: int) -> list[str]:
 
 
 def _split_by_words(text: str, limit: int) -> list[str]:
-    """Hard-split on word boundaries as a last resort."""
+    """Hard-split on word boundaries as a last resort.
+
+    A single token longer than `limit` (e.g. a very long URL) is cut on
+    character boundaries — splitting mid-word is ugly but beats failing the
+    whole translation.
+    """
     words = text.split(" ")
     chunks: list[str] = []
     current = ""
     for word in words:
+        token = word
+        # A single token longer than the limit: slice it into pieces.
+        while len(token) > limit:
+            if current:
+                chunks.append(current)
+                current = ""
+            chunks.append(token[:limit])
+            token = token[limit:]
+
         if not current:
-            current = word
-        elif len(current) + 1 + len(word) <= limit:
-            current += " " + word
+            current = token
+        elif len(current) + 1 + len(token) <= limit:
+            current += " " + token
         else:
             chunks.append(current)
-            current = word
+            current = token
     if current:
         chunks.append(current)
     return chunks
