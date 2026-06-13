@@ -1,12 +1,12 @@
 # TgRepostBot
 
-Telegram → LinkedIn кросспостинг бот с автоматическим переводом.
+Telegram → LinkedIn кросспостинг бот с опциональным переводом.
 
 ## Возможности
 
 - 🔄 Автоматический кросспостинг из Telegram каналов в LinkedIn
 - 📝 Ручная пересылка постов через бота
-- 🌐 Автоматический перевод текста (DeepL — бесплатно, без карты)
+- 🌐 Перевод через MyMemory — **бесплатно, без карты и API ключа** (можно отключить)
 - 🖼️ Перенос изображений
 - ⚙️ Полная настройка через Telegram — без редактирования файлов
 - 🐙 Пошаговый wizard `/setup` для новичков
@@ -14,7 +14,7 @@ Telegram → LinkedIn кросспостинг бот с автоматичес�
 ## Быстрый старт (3 команды)
 
 ```bash
-git clone <YOUR_REPO_URL> ~/TgRepostBot
+git clone https://github.com/Bowlx/TgRepostBot ~/TgRepostBot
 cd ~/TgRepostBot
 cp .env.example .env && nano .env   # вставить только BOT_TOKEN
 docker compose up -d
@@ -27,7 +27,6 @@ docker compose up -d
 ### Шаг 1: Подготовка сервера
 
 ```bash
-# Обновите систему
 sudo apt update && sudo apt upgrade -y
 
 # Установите Docker
@@ -40,7 +39,7 @@ sudo usermod -aG docker $USER
 ### Шаг 2: Единственная настройка на сервере
 
 ```bash
-git clone <YOUR_REPO_URL> ~/TgRepostBot
+git clone https://github.com/Bowlx/TgRepostBot ~/TgRepostBot
 cd ~/TgRepostBot
 cp .env.example .env
 nano .env
@@ -52,7 +51,7 @@ nano .env
 BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 ```
 
-> Токен бота можно получить у [@BotFather](https://t.me/BotFather) → `/newbot`
+> Токен бота: [@BotFather](https://t.me/BotFather) → `/newbot`
 
 ### Шаг 3: Запуск
 
@@ -65,29 +64,18 @@ docker compose logs -f    # проверить что запустился
 
 1. Откройте бота в Telegram → нажмите **Start**
 2. Бот увидит, что не настроен → нажмите **🚀 Настроить бот**
-3. Пройдите 4 шага wizard'а:
-   - 🔑 **DeepL API Key** — бот даст ссылку и инструкцию
-   - 🆔 **LinkedIn Client ID** — ссылка на LinkedIn Developers + инструкция
+3. Пройдите 3 шага wizard'а (только LinkedIn — переводчик уже работает):
+   - 🆔 **LinkedIn Client ID**
    - 🔐 **LinkedIn Client Secret**
    - 🔗 **LinkedIn Redirect URI**
 4. После wizard'а → нажмите **🔗 Подключить LinkedIn** → разрешите доступ
-5. Скопируйте `code` из URL → отправьте `/callback ВАШ_КОД`
+5. Скопируйте `code` из URL редиректа → отправьте `/callback ВАШ_КОД`
 6. Готово! 🎉
 
-### Как получить API ключи (подробно)
+> Перевод работает **сразу** через MyMemory — ничего настраивать не нужно.
+> По желанию: `/translate off` отключит перевод, `/setemail ваш@email` поднимет лимит до 50 000 симв/день.
 
-<details>
-<summary>🔑 DeepL API Key (бесплатно, без карты)</summary>
-
-1. Откройте [deepl.com/pro#developer](https://www.deepl.com/pro#developer)
-2. Выберите план **Free** (500 000 символов/мес — бесплатно, карта НЕ нужна)
-3. Зарегистрируйтесь по email
-4. В [настройках аккаунта](https://www.deepl.com/pro-account/usage) найдите **Authentication Key**
-5. Скопируйте ключ (заканчивается на `:fx` для бесплатного плана)
-
-> DeepL переводит лучше Google, особенно для делового/технического текста.
-
-</details>
+## Как получить LinkedIn ключи (подробно)
 
 <details>
 <summary>💼 LinkedIn App (Client ID + Secret)</summary>
@@ -96,7 +84,7 @@ docker compose logs -f    # проверить что запустился
 2. Нажмите **Create App**
 3. Заполните: название, LinkedIn Page, язык
 4. В разделе **Settings** → подтвердите приложение (**Verify**)
-5. В разделе **Products** включите ОБА продукта:
+5. В разделе **Products** включите **ОБА** продукта:
    - **Share on LinkedIn** (для публикации постов)
    - **Sign In with LinkedIn using OpenID Connect** (для получения ID пользователя)
 6. В разделе **Auth**:
@@ -110,20 +98,34 @@ docker compose logs -f    # проверить что запустился
 | Команда | Описание |
 |---------|----------|
 | `/start` | Приветствие + статус настройки |
-| `/setup` | Пошаговая настройка API ключей |
+| `/setup` | Пошаговая настройка LinkedIn |
 | `/auth` | Подключить LinkedIn аккаунт |
 | `/callback CODE` | Завершить авторизацию LinkedIn |
-| `/setlang SRC TGT` | Настроить языки перевода (например: `ru en`) |
-| `/preview` | Посмотреть превью отложенного поста |
+| `/setlang SRC TGT` | Языки перевода (например: `ru en`) |
+| `/translate on\|off` | Включить/отключить перевод |
+| `/setemail ваш@email` | Повысить лимит переводов до 50k симв/день |
+| `/preview` | Превью отложенного поста |
 | `/post` | Опубликовать отложенный пост в LinkedIn |
 | `/skip` | Отменить отложенный пост |
+
+## Перевод (опционально)
+
+Бот использует **MyMemory API** — бесплатно, без ключа, без карты.
+
+| Настройка | Лимит |
+|-----------|-------|
+| По умолчанию (анонимно) | 5 000 симв/день |
+| С `/setemail ваш@email` | 50 000 симв/день |
+
+- `/translate off` — публиковать посты в оригинале без перевода
+- `/translate on` — снова включить перевод (по умолчанию)
 
 ## Управление Docker
 
 ```bash
 docker compose down              # остановить
 docker compose restart           # перезапустить
-docker compose up -d --build     # обновить после изменений
+docker compose up -d --build     # обновить после git pull
 docker compose logs -f --tail 100  # логи
 ```
 
@@ -131,8 +133,18 @@ docker compose logs -f --tail 100  # логи
 
 ### Автоматический (из канала)
 
-Добавьте бота как подписчика в Telegram канал. Все новые посты будут автоматически переводиться и публиковаться в LinkedIn.
+Добавьте бота как подписчика в Telegram канал. Все новые посты будут автоматически публиковаться в LinkedIn (с переводом, если включён).
 
 ### Ручной (пересылка)
 
-Перешлите любой пост боту в личные сообщения. Бот переведёт текст и покажет превью. Нажмите `/post` для публикации или `/skip` для отмены.
+Перешлите любой пост боту в личные сообщения. Бот покажет превью (с переводом, если включён). Нажмите `/post` для публикации или `/skip` для отмены.
+
+## Обновление
+
+```bash
+cd ~/TgRepostBot
+git pull
+docker compose up -d --build
+```
+
+> База данных (`data/bot.db`) хранится в Docker volume — не теряется при обновлении.

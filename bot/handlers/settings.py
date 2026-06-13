@@ -28,6 +28,27 @@ async def cmd_setlang(message: types.Message, storage: Storage) -> None:
     await message.answer(f"✅ Языки перевода обновлены: <b>{source_lang} → {target_lang}</b>")
 
 
+@router.message(Command("translate"))
+async def cmd_translate(message: types.Message, storage: Storage) -> None:
+    """Toggle translation on/off: /translate on or /translate off"""
+    parts = message.text.split()
+    if len(parts) != 2 or parts[1].lower() not in ("on", "off", "вкл", "выкл"):
+        await message.answer(
+            "❌ Использование: <code>/translate on</code> или <code>/translate off</code>\n\n"
+            "<b>on</b> — переводить посты (по умолчанию)\n"
+            "<b>off</b> — публиковать оригинальный текст без перевода"
+        )
+        return
+
+    enabled = parts[1].lower() in ("on", "вкл")
+    await storage.set_translate_enabled(message.from_user.id, enabled)
+    status = "включён" if enabled else "отключён"
+    await message.answer(
+        f"✅ Перевод <b>{status}</b>.\n"
+        + ("Посты будут переводиться перед публикацией." if enabled else "Посты будут публиковаться в оригинале.")
+    )
+
+
 @router.message(Command("setemail"))
 async def cmd_setemail(message: types.Message, storage: Storage) -> None:
     """Set MyMemory email to raise the daily translation limit to 50000 chars."""

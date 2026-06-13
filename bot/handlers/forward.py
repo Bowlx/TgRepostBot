@@ -33,9 +33,9 @@ async def handle_forwarded(
         await message.answer("❌ Не удалось извлечь контент из сообщения.")
         return
 
-    # Translate text
+    # Translate text (only if translation is enabled for this user)
     translated_text = text
-    if text.strip():
+    if text.strip() and user.translate_enabled:
         try:
             translated_text = await translator.translate(text, user.source_lang, user.target_lang)
         except Exception as e:

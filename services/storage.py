@@ -28,11 +28,19 @@ class Storage:
                     user_id INTEGER PRIMARY KEY,
                     source_lang TEXT NOT NULL DEFAULT 'ru',
                     target_lang TEXT NOT NULL DEFAULT 'en',
+                    translate_enabled INTEGER NOT NULL DEFAULT 1,
                     linkedin_access_token TEXT,
                     linkedin_person_urn TEXT
                 )
                 """
             )
+            # Migration: add translate_enabled column for existing databases
+            try:
+                await db.execute(
+                    "ALTER TABLE users ADD COLUMN translate_enabled INTEGER NOT NULL DEFAULT 1"
+                )
+            except aiosqlite.OperationalError:
+                pass  # Column already exists
             await db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS pending_posts (
@@ -80,6 +88,7 @@ class Storage:
                 user_id=row["user_id"],
                 source_lang=row["source_lang"],
                 target_lang=row["target_lang"],
+                translate_enabled=bool(row["translate_enabled"]),
                 linkedin_access_token=row["linkedin_access_token"],
                 linkedin_person_urn=row["linkedin_person_urn"],
             )
@@ -98,6 +107,14 @@ class Storage:
             await db.execute(
                 "UPDATE users SET source_lang = ?, target_lang = ? WHERE user_id = ?",
                 (source_lang, target_lang, user_id),
+            )
+            await db.commit()
+
+    async def set_translate_enabled(self, user_id: int, enabled: bool) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE users SET translate_enabled = ? WHERE user_id = ?",
+                (1 if enabled else 0, user_id),
             )
             await db.commit()
 
@@ -153,6 +170,7 @@ class Storage:
                     user_id=row["user_id"],
                     source_lang=row["source_lang"],
                     target_lang=row["target_lang"],
+                    translate_enabled=bool(row["translate_enabled"]),
                     linkedin_access_token=row["linkedin_access_token"],
                     linkedin_person_urn=row["linkedin_person_urn"],
                 )

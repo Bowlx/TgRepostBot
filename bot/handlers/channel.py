@@ -36,7 +36,7 @@ async def handle_channel_post(
 
     for user in users:
         translated_text = text
-        if text.strip():
+        if text.strip() and user.translate_enabled:
             try:
                 translated_text = await translator.translate(text, user.source_lang, user.target_lang)
             except Exception as e:

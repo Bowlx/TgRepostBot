@@ -7,6 +7,7 @@ class User:
     user_id: int
     source_lang: str = "ru"
     target_lang: str = "en"
+    translate_enabled: bool = True
     linkedin_access_token: Optional[str] = None
     linkedin_person_urn: Optional[str] = None
 
