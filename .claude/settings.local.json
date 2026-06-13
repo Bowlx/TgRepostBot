@@ -30,7 +30,9 @@
       "Bash(python -c \"from services.translator import Translator; from bot.handlers.setup import router; from bot.handlers.start import router; print\\('ALL IMPORTS OK'\\)\")",
       "Bash(python -c \"from services.translator import Translator; from bot.handlers.setup import router; from bot.handlers.start import router; from bot.handlers.settings import router; print\\('ALL OK'\\)\")",
       "Bash(python -c \"from services.linkedin import LinkedInClient; from bot.handlers.setup import router; print\\('ALL OK'\\)\")",
-      "Bash(python -c \"from services.storage import Storage; from bot.handlers.settings import router; from bot.handlers.forward import router; from bot.handlers.channel import router; from bot.handlers.start import router; print\\('ALL OK'\\)\")"
+      "Bash(python -c \"from services.storage import Storage; from bot.handlers.settings import router; from bot.handlers.forward import router; from bot.handlers.channel import router; from bot.handlers.start import router; print\\('ALL OK'\\)\")",
+      "Bash(python -m py_compile bot/media_group.py)",
+      "Bash(python -c \"from bot.media_group import MediaGroupAggregator, extract_group_content; from bot.handlers.channel import router; from bot.handlers.forward import router; print\\('ALL OK'\\)\")"
     ]
   }
 }

@@ -2,12 +2,16 @@ import logging
 
 from aiogram import Router, types, Bot, F
 
+from bot.media_group import MediaGroupAggregator, extract_group_content
 from services.storage import Storage
 from services.translator import Translator
 from services.linkedin import LinkedInClient
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+# One aggregator per process: batches album messages into a single publication.
+aggregator = MediaGroupAggregator(delay=1.0)
 
 router.channel_post.filter(F.chat.type == "channel")
 
@@ -20,52 +24,60 @@ async def handle_channel_post(
     translator: Translator,
     linkedin_client: LinkedInClient,
 ) -> None:
-    text = message.text or message.caption or ""
+    """Each message of an album is a separate update.
+    Buffer them by media_group_id, then publish the whole group as ONE post.
+    """
 
-    photo_file_ids: list[str] = []
-    if message.photo:
-        photo_file_ids = [message.photo[-1].file_id]
+    async def publish_group(messages: list[types.Message]) -> None:
+        text, photo_file_ids = extract_group_content(messages)
+        if not text and not photo_file_ids:
+            return
 
-    if not text and not photo_file_ids:
-        return
+        users = await storage.get_all_linkedin_users()
+        if not users:
+            logger.warning("No users with LinkedIn connected, skipping channel post")
+            return
 
-    users = await storage.get_all_linkedin_users()
-    if not users:
-        logger.warning("No users with LinkedIn connected, skipping channel post")
-        return
+        for user in users:
+            translated_text = text
+            if text.strip() and user.translate_enabled:
+                try:
+                    translated_text = await translator.translate(
+                        text, user.source_lang, user.target_lang
+                    )
+                except Exception as e:
+                    logger.error(f"Translation failed for user {user.user_id}: {e}")
 
-    for user in users:
-        translated_text = text
-        if text.strip() and user.translate_enabled:
+            image_asset_urns: list[str] = []
+            for file_id in photo_file_ids:
+                try:
+                    file = await bot.get_file(file_id)
+                    image_bytes = await bot.download_file(file.file_path)
+                    image_data = image_bytes.read()
+                    asset_urn = await linkedin_client.upload_image_full(
+                        user.linkedin_access_token, user.linkedin_person_urn, image_data
+                    )
+                    image_asset_urns.append(asset_urn)
+                except Exception as e:
+                    logger.error(f"Image upload failed: {e}")
+
             try:
-                translated_text = await translator.translate(text, user.source_lang, user.target_lang)
-            except Exception as e:
-                logger.error(f"Translation failed for user {user.user_id}: {e}")
-
-        image_asset_urns: list[str] = []
-        for file_id in photo_file_ids:
-            try:
-                file = await bot.get_file(file_id)
-                image_bytes = await bot.download_file(file.file_path)
-                image_data = image_bytes.read()
-                asset_urn = await linkedin_client.upload_image_full(
-                    user.linkedin_access_token, user.linkedin_person_urn, image_data
+                await linkedin_client.create_post(
+                    user.linkedin_access_token,
+                    user.linkedin_person_urn,
+                    translated_text,
+                    image_asset_urns or None,
                 )
-                image_asset_urns.append(asset_urn)
+                logger.info(f"Channel post published to LinkedIn for user {user.user_id}")
             except Exception as e:
-                logger.error(f"Image upload failed: {e}")
+                logger.error(f"LinkedIn post failed for user {user.user_id}: {e}")
+                try:
+                    await bot.send_message(
+                        user.user_id,
+                        f"❌ Ошибка публикации в LinkedIn: {e}\n"
+                        f"Возможно, нужно переподключить: /auth",
+                    )
+                except Exception:
+                    pass
 
-        try:
-            await linkedin_client.create_post(
-                user.linkedin_access_token, user.linkedin_person_urn, translated_text, image_asset_urns or None
-            )
-            logger.info(f"Channel post published to LinkedIn for user {user.user_id}")
-        except Exception as e:
-            logger.error(f"LinkedIn post failed for user {user.user_id}: {e}")
-            try:
-                await bot.send_message(
-                    user.user_id,
-                    f"❌ Ошибка публикации в LinkedIn: {e}\nВозможно, нужно переподключить: /auth",
-                )
-            except Exception:
-                pass
+    await aggregator.add(message, publish_group)
