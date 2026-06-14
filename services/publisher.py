@@ -1,0 +1,130 @@
+"""Single entry point that fans a post out to every connected+enabled destination."""
+import logging
+import os
+import tempfile
+from dataclasses import dataclass
+
+from aiogram import Bot
+
+from models import User
+from services.linkedin import LinkedInClient
+from services.instagram import InstagramClient
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DestResult:
+    name: str   # "LinkedIn" / "Instagram"
+    ok: bool
+    detail: str
+
+    @property
+    def icon(self) -> str:
+        if not self.ok:
+            return "❌"
+        return "✅"
+
+
+class Publisher:
+    def __init__(self, linkedin: LinkedInClient, instagram: InstagramClient, bot: Bot):
+        self.linkedin = linkedin
+        self.instagram = instagram
+        self.bot = bot
+
+    async def publish_to_all(
+        self,
+        user: User,
+        text: str,
+        photo_file_ids: list[str],
+    ) -> list[DestResult]:
+        results: list[DestResult] = []
+
+        # Download each photo to a temp file ONCE; both destinations reuse the paths.
+        temp_paths = await self._download_photos(photo_file_ids)
+        try:
+            results.append(await self._publish_linkedin(user, text, temp_paths))
+            results.append(await self._publish_instagram(user, text, temp_paths))
+        finally:
+            for path in temp_paths:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        return results
+
+    async def _download_photos(self, photo_file_ids: list[str]) -> list[str]:
+        paths: list[str] = []
+        for file_id in photo_file_ids:
+            try:
+                file = await self.bot.get_file(file_id)
+                downloaded = await self.bot.download_file(file.file_path)
+                data = downloaded.read()
+                fd, path = tempfile.mkstemp(suffix=".jpg")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(data)
+                paths.append(path)
+            except Exception as e:
+                logger.error(f"Failed to download photo {file_id}: {e}")
+        return paths
+
+    async def _publish_linkedin(
+        self, user: User, text: str, photo_paths: list[str]
+    ) -> DestResult:
+        if not user.linkedin_access_token or not user.linkedin_person_urn:
+            return DestResult("LinkedIn", False, "не подключён")
+        if not user.linkedin_enabled:
+            return DestResult("LinkedIn", True, "⏸ выключен")
+
+        image_urns: list[str] = []
+        for path in photo_paths:
+            try:
+                with open(path, "rb") as f:
+                    data = f.read()
+                urn = await self.linkedin.upload_image_full(
+                    user.linkedin_access_token, user.linkedin_person_urn, data
+                )
+                image_urns.append(urn)
+            except Exception as e:
+                logger.error(f"LinkedIn image upload failed: {e}")
+        try:
+            await self.linkedin.create_post(
+                user.linkedin_access_token,
+                user.linkedin_person_urn,
+                text,
+                image_urns or None,
+            )
+            return DestResult("LinkedIn", True, "опубликован")
+        except Exception as e:
+            return DestResult("LinkedIn", False, str(e))
+
+    async def _publish_instagram(
+        self, user: User, text: str, photo_paths: list[str]
+    ) -> DestResult:
+        if not user.instagram_username or not user.instagram_password_encrypted:
+            return DestResult("Instagram", False, "не подключён")
+        if not user.instagram_enabled:
+            return DestResult("Instagram", True, "⏸ выключен")
+        if not photo_paths:
+            # Instagram has no text-only posts — skip gracefully.
+            return DestResult("Instagram", False, "нет фото (Instagram требует медиа)")
+
+        try:
+            media_id = await self.instagram.publish(
+                user.user_id,
+                user.instagram_username,
+                user.instagram_password_encrypted,
+                user.instagram_totp_secret_encrypted,
+                text,
+                photo_paths,
+            )
+            return DestResult("Instagram", True, f"опубликован ({media_id})")
+        except Exception as e:
+            return DestResult("Instagram", False, str(e))
+
+
+def render_results(results: list[DestResult]) -> str:
+    lines = []
+    for r in results:
+        lines.append(f"{r.icon} {r.name}: {r.detail}")
+    return "\n".join(lines)
