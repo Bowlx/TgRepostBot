@@ -60,20 +60,18 @@ class InstagramClient:
         loop = asyncio.get_running_loop()
 
         def challenge_handler(uname, choice):
-            # Runs inside the worker thread. Bridge to the async ask_code.
+            # Runs inside the worker thread. Delegate to the async ask_code,
+            # which owns the pending-code future + FSM state and returns the
+            # code string. Do NOT create a future here — single owner.
             if self.ask_code is None:
-                return False
-            fut: asyncio.Future = loop.create_future()
-            self._pending_codes[user_id] = fut
+                return ""
             try:
                 return asyncio.run_coroutine_threadsafe(
                     self.ask_code(user_id, choice), loop
                 ).result(timeout=300)
             except Exception as e:
                 logger.error(f"Instagram challenge code not provided: {e}")
-                return False
-            finally:
-                self._pending_codes.pop(user_id, None)
+                return ""
 
         def _build():
             cl = Client()
@@ -81,7 +79,9 @@ class InstagramClient:
             path = self.session_path(user_id)
             if os.path.exists(path):
                 cl.set_settings(cl.load_settings(path))
-            verification = pyotp.TOTP(totp_secret).now() if totp_secret else None
+            # instagrapi calls verification_code.strip() on its 2FA branch —
+            # pass "" (its default), never None, or a 2FA account crashes.
+            verification = pyotp.TOTP(totp_secret).now() if totp_secret else ""
             cl.login(username, password, verification_code=verification)
             return cl
 

@@ -16,14 +16,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DestResult:
     name: str   # "LinkedIn" / "Instagram"
-    ok: bool
+    ok: bool           # True only when actually published
     detail: str
+    skipped: bool = False  # paused / not connected / no media
 
     @property
     def icon(self) -> str:
-        if not self.ok:
-            return "❌"
-        return "✅"
+        if self.skipped:
+            return "⏸"
+        return "✅" if self.ok else "❌"
 
 
 class Publisher:
@@ -72,9 +73,9 @@ class Publisher:
         self, user: User, text: str, photo_paths: list[str]
     ) -> DestResult:
         if not user.linkedin_access_token or not user.linkedin_person_urn:
-            return DestResult("LinkedIn", False, "не подключён")
+            return DestResult("LinkedIn", False, "не подключён", skipped=True)
         if not user.linkedin_enabled:
-            return DestResult("LinkedIn", True, "⏸ выключен")
+            return DestResult("LinkedIn", False, "пауза", skipped=True)
 
         image_urns: list[str] = []
         for path in photo_paths:
@@ -102,12 +103,12 @@ class Publisher:
         self, user: User, text: str, photo_paths: list[str]
     ) -> DestResult:
         if not user.instagram_username or not user.instagram_password_encrypted:
-            return DestResult("Instagram", False, "не подключён")
+            return DestResult("Instagram", False, "не подключён", skipped=True)
         if not user.instagram_enabled:
-            return DestResult("Instagram", True, "⏸ выключен")
+            return DestResult("Instagram", False, "пауза", skipped=True)
         if not photo_paths:
             # Instagram has no text-only posts — skip gracefully.
-            return DestResult("Instagram", False, "нет фото (Instagram требует медиа)")
+            return DestResult("Instagram", False, "нет фото (требуется медиа)", skipped=True)
 
         try:
             media_id = await self.instagram.publish(

@@ -41,10 +41,9 @@ async def main() -> None:
     linkedin = LinkedInClient(storage=storage)
     crypto = Crypto(cfg.encryption_key)
     instagram = InstagramClient(session_dir="data", crypto=crypto)
-    publisher = Publisher(linkedin=linkedin, instagram=instagram, bot=None)
 
     bot = Bot(token=cfg.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    publisher.bot = bot  # bot is needed at publish time
+    publisher = Publisher(linkedin=linkedin, instagram=instagram, bot=bot)
 
     dp = Dispatcher()
     dp["storage"] = storage

@@ -37,7 +37,25 @@
       "Bash(python -m py_compile bot/text_format.py)",
       "Bash(python -m py_compile bot/handlers/approval.py)",
       "Bash(python -c \"from bot.handlers import start, settings, channel, forward, post, setup, approval; from bot.main import main; print\\('ALL OK'\\)\")",
-      "Bash(python -c \"from bot.handlers.approval import router; print\\('OK'\\)\")"
+      "Bash(python -c \"from bot.handlers.approval import router; print\\('OK'\\)\")",
+      "Bash(python -c \"from services.storage import Storage; from models import User; print\\('OK'\\)\")",
+      "Bash(python -c \"from services.instagram import InstagramClient; print\\('OK'\\)\")",
+      "Bash(python -c \"from services.publisher import Publisher, DestResult; print\\('OK'\\)\")",
+      "Bash(python -c \"from bot.handlers.instagram import router; print\\('OK'\\)\")",
+      "Bash(xxd)",
+      "Bash(python -c \"from bot.handlers.settings import router; print\\('OK'\\)\")",
+      "Bash(python -c \"from bot.main import main; print\\('OK'\\)\")",
+      "Bash(python -c \"from bot.handlers.channel import router; print\\('OK'\\)\")",
+      "Bash(python -c \"from bot.handlers.post import router; print\\('OK'\\)\")",
+      "Bash(python -c \"from bot.handlers.start import router; print\\('OK'\\)\")",
+      "Bash(python -m py_compile config.py models.py services/crypto.py services/instagram.py services/publisher.py services/storage.py bot/main.py bot/handlers/instagram.py bot/handlers/settings.py bot/handlers/channel.py bot/handlers/post.py bot/handlers/approval.py bot/handlers/start.py)",
+      "Bash(python -c \"from bot.main import main; print\\('=== FULL IMPORT OK ==='\\)\")",
+      "Bash(python -c \"import instagrapi; print\\(instagrapi.__file__\\)\")",
+      "Bash(python -c \"import pyotp, cryptography; print\\('pyotp + cryptography OK'\\)\")",
+      "Bash(cd /d/work/TgRepostBot)",
+      "Bash(python -)",
+      "Bash(python -m py_compile services/instagram.py services/publisher.py bot/handlers/instagram.py bot/main.py)",
+      "Bash(python -c \"from bot.main import main; print\\('=== IMPORT OK ==='\\)\")"
     ]
   }
 }

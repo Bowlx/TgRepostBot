@@ -24,23 +24,31 @@ class IgChallenge(StatesGroup):
     waiting_code = State()
 
 
-async def _ask_code_factory(bot: Bot, instagram: InstagramClient):
-    """Builds the async ask_code callback the InstagramClient uses for 2FA."""
-    async def ask_code(user_id: int, choice) -> str | None:
+def _make_ask_code(bot: Bot, instagram: InstagramClient, state: FSMContext):
+    """Builds the async ask_code callback the InstagramClient uses for 2FA.
+
+    ask_code owns the pending-code future AND sets the FSM state so the user's
+    reply is routed to receive_ig_code below. Single future owner — the client's
+    challenge_handler just delegates here.
+    """
+    async def ask_code(user_id: int, choice) -> str:
         loop = asyncio.get_running_loop()
         fut: asyncio.Future = loop.create_future()
         instagram._pending_codes[user_id] = fut
+        # Set FSM state so the user's code reply reaches receive_ig_code.
+        await state.set_state(IgChallenge.waiting_code)
+        await bot.send_message(
+            user_id,
+            "🔐 Instagram запросил код подтверждения (SMS/email).\n"
+            "Отправьте код сюда в течение 5 минут:",
+        )
         try:
-            await bot.send_message(
-                user_id,
-                "🔐 Instagram запросил код подтверждения (SMS/email).\n"
-                "Отправьте код сюда в течение 5 минут:",
-            )
             return await asyncio.wait_for(fut, timeout=300)
         except asyncio.TimeoutError:
-            return None
+            return ""
         finally:
             instagram._pending_codes.pop(user_id, None)
+            await state.clear()
     return ask_code
 
 
@@ -48,6 +56,7 @@ async def _ask_code_factory(bot: Bot, instagram: InstagramClient):
 async def cmd_iglogin(
     message: types.Message,
     bot: Bot,
+    state: FSMContext,
     storage: Storage,
     instagram_client: InstagramClient,
     crypto: Crypto,
@@ -78,8 +87,9 @@ async def cmd_iglogin(
 
     status = await bot.send_message(message.from_user.id, "⏳ Вхожу в Instagram...")
 
-    # Wire up the interactive 2FA code prompt.
-    instagram_client.ask_code = await _ask_code_factory(bot, instagram_client)
+    # Wire up the interactive 2FA code prompt (single-user bot: ask_code is a
+    # per-process attribute; concurrent multi-user logins would clobber it).
+    instagram_client.ask_code = _make_ask_code(bot, instagram_client, state)
 
     try:
         await instagram_client.login(message.from_user.id, username, password, totp_secret)
@@ -87,6 +97,8 @@ async def cmd_iglogin(
         logger.error(f"Instagram login failed: {e}")
         await status.edit_text(f"❌ Ошибка входа в Instagram: {e}")
         return
+    finally:
+        await state.clear()
 
     enc_password = crypto.encrypt(password)
     enc_totp = crypto.encrypt(totp_secret) if totp_secret else None
