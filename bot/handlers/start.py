@@ -42,9 +42,9 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
         f"Я бот для кросспостинга из Telegram в LinkedIn с переводом.\n\n"
         f"<b>📋 Статус:</b>\n"
-        f"🌐 Переводчик: MyMemory ✅\n"
-        f"🆔 LinkedIn App: ✅\n"
-        f"💼 LinkedIn аккаунт: {'✅ Подключён' if has_linkedin_auth else '❌ Не подключён'}\n"
+        f"🌐 Переводчик: Google ✅\n"
+        f"💼 LinkedIn: {'✅ ' + ('вкл' if user.linkedin_enabled else 'пауза') if has_linkedin_app else '❌ не настроен'}\n"
+        f"📸 Instagram: {'✅ ' + ('вкл' if user.instagram_enabled else 'пауза') if user.instagram_username else '❌ /iglogin'}\n"
         f"🔤 Перевод: {'✅ вкл' if user.translate_enabled else '⏸ off'} ({user.source_lang} → {user.target_lang})\n"
         f"🔔 Подтверждение постов: {'✅ вкл' if user.approve_enabled else '⏸ off'}\n\n"
     )
@@ -61,11 +61,12 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         welcome += (
             "<b>Команды:</b>\n"
             "• Перешлите пост — перевод + превью\n"
-            "• <code>/post</code> — опубликовать\n"
-            "• <code>/setlang ru en</code> — сменить языки\n"
-            "• <code>/translate off</code> — отключить перевод\n"
-            "• <code>/approve on</code> — подтверждение постов перед публикацией\n"
-            "• <code>/setemail ваш@email</code> — поднять лимит переводов\n"
+            "• <code>/post</code> — опубликовать во все destination\n"
+            "• <code>/iglogin логин пароль [totp]</code> — подключить Instagram\n"
+            "• <code>/linkedin on|off</code> · <code>/instagram on|off</code> — пауза\n"
+            "• <code>/destinations</code> — статус куда публикуем\n"
+            "• <code>/setlang ru en</code> · <code>/translate off</code>\n"
+            "• <code>/approve on</code> — подтверждение постов\n"
             "• <code>/setup</code> — перенастроить LinkedIn"
         )
         await message.answer(welcome)
