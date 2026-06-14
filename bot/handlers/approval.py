@@ -12,7 +12,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from bot.text_format import format_text
 from services.storage import Storage
-from services.linkedin import LinkedInClient
+from services.publisher import Publisher, render_results
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def handle_approval_callback(
     callback: types.CallbackQuery,
     state: FSMContext,
     storage: Storage,
-    linkedin_client: LinkedInClient,
+    publisher: Publisher,
     bot: Bot,
 ) -> None:
     # callback_data format: apv:{id}:{action}
@@ -47,7 +47,7 @@ async def handle_approval_callback(
         return
 
     if action == "pub":
-        await _publish(callback, bot, storage, linkedin_client, approval)
+        await _publish(callback, bot, storage, publisher, approval)
     elif action == "edit":
         await _start_edit(callback, state, storage, approval_id)
     elif action == "skip":
@@ -56,36 +56,22 @@ async def handle_approval_callback(
         await callback.answer()
 
 
-async def _publish(callback, bot, storage, linkedin_client, approval) -> None:
-    await callback.message.edit_text("⏳ Публикую в LinkedIn...")
-    try:
-        # Inline helper to upload images + create post (mirrors channel.py).
-        image_asset_urns: list[str] = []
-        for file_id in approval.photo_file_ids:
-            try:
-                file = await bot.get_file(file_id)
-                image_bytes = await bot.download_file(file.file_path)
-                image_data = image_bytes.read()
-                asset_urn = await linkedin_client.upload_image_full(
-                    (await storage.get_user(approval.user_id)).linkedin_access_token,
-                    (await storage.get_user(approval.user_id)).linkedin_person_urn,
-                    image_data,
-                )
-                image_asset_urns.append(asset_urn)
-            except Exception as e:
-                logger.error(f"Image upload failed: {e}")
-
-        user = await storage.get_user(approval.user_id)
-        await linkedin_client.create_post(
-            user.linkedin_access_token, user.linkedin_person_urn,
-            approval.translated_text, image_asset_urns or None,
-        )
+async def _publish(callback, bot, storage, publisher: Publisher, approval) -> None:
+    await callback.message.edit_text("⏳ Публикую...")
+    user = await storage.get_user(approval.user_id)
+    if user is None:
+        await callback.message.edit_text("❌ Пользователь не найден.")
+        await callback.answer()
+        return
+    results = await publisher.publish_to_all(
+        user, approval.translated_text, approval.photo_file_ids
+    )
+    if any(r.ok for r in results):
         await storage.delete_approval(approval.id)
-        await callback.message.edit_text("✅ Опубликован в LinkedIn!")
-    except Exception as e:
-        logger.error(f"Approval publish failed: {e}")
+        await callback.message.edit_text("✅ Готово!\n" + render_results(results))
+    else:
         await callback.message.edit_text(
-            f"❌ Ошибка публикации: {e}\n\nПопробуйте переподключить: /auth"
+            "❌ Ни один destination не сработал:\n" + render_results(results)
         )
     await callback.answer()
 
