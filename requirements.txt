@@ -3,3 +3,6 @@ aiosqlite
 pydantic-settings
 python-dotenv
 deep-translator
+instagrapi
+cryptography
+pyotp
