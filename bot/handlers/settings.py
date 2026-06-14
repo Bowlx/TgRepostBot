@@ -142,3 +142,60 @@ async def cmd_callback(
         await message.answer("✅ LinkedIn успешно подключён!")
     except Exception as e:
         await message.answer(f"❌ Ошибка авторизации: {e}\nПопробуйте снова: /auth")
+
+
+def _parse_on_off(text: str):
+    parts = text.split()
+    if len(parts) != 2:
+        return None
+    return parts[1].lower() in ("on", "вкл")
+
+
+@router.message(Command("linkedin"))
+async def cmd_linkedin_toggle(message: types.Message, storage: Storage) -> None:
+    enabled = _parse_on_off(message.text)
+    if enabled is None:
+        await message.answer(
+            "❌ Использование: <code>/linkedin on</code> или <code>/linkedin off</code>\n\n"
+            "Пауза публикации в LinkedIn без отключения аккаунта."
+        )
+        return
+    await storage.set_linkedin_enabled(message.from_user.id, enabled)
+    await message.answer(
+        f"✅ LinkedIn: <b>{'включён' if enabled else 'пауза'}</b>."
+    )
+
+
+@router.message(Command("instagram"))
+async def cmd_instagram_toggle(message: types.Message, storage: Storage) -> None:
+    enabled = _parse_on_off(message.text)
+    if enabled is None:
+        await message.answer(
+            "❌ Использование: <code>/instagram on</code> или <code>/instagram off</code>"
+        )
+        return
+    await storage.set_instagram_enabled(message.from_user.id, enabled)
+    await message.answer(
+        f"✅ Instagram: <b>{'включён' if enabled else 'пауза'}</b>."
+    )
+
+
+@router.message(Command("destinations"))
+async def cmd_destinations(message: types.Message, storage: Storage) -> None:
+    user = await storage.get_user(message.from_user.id)
+    if user is None:
+        await message.answer("Сначала нажмите /start")
+        return
+
+    def line(name: str, connected: bool, enabled: bool) -> str:
+        if not connected:
+            return f"  ⚪️ {name}: не подключён"
+        return f"  {'🟢' if enabled else '⏸️'} {name}: {'включён' if enabled else 'пауза'}"
+
+    await message.answer(
+        "<b>📍 Куда публикуем:</b>\n"
+        + line("LinkedIn", bool(user.linkedin_access_token), user.linkedin_enabled)
+        + "\n"
+        + line("Instagram", bool(user.instagram_username), user.instagram_enabled)
+        + "\n\nПереключить: <code>/linkedin on|off</code> или <code>/instagram on|off</code>"
+    )
