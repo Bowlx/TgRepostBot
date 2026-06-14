@@ -51,12 +51,36 @@ class InstagramClient:
         password: str,
         totp_secret: Optional[str] = None,
     ) -> None:
-        cl = await self._get_client(user_id, username, password, totp_secret)
+        cl = await self._get_client(
+            user_id, username, password, totp_secret, sessionid=None
+        )
         cl.dump_settings(self.session_path(user_id))
 
-    async def _get_client(self, user_id: int, username: str, password: str,
-                          totp_secret: Optional[str]) -> Client:
-        """Load a logged-in client, reusing the session file."""
+    async def login_by_sessionid(self, user_id: int, sessionid: str) -> str:
+        """Login via the browser sessionid cookie. Returns the account username."""
+        cl = await self._get_client(
+            user_id, username=None, password=None, totp_secret=None, sessionid=sessionid
+        )
+        cl.dump_settings(self.session_path(user_id))
+
+        def _fetch_username():
+            return cl.user_info(cl.user_id).username
+
+        return await asyncio.to_thread(_fetch_username)
+
+    async def _get_client(
+        self,
+        user_id: int,
+        username: Optional[str],
+        password: Optional[str],
+        totp_secret: Optional[str],
+        sessionid: Optional[str] = None,
+    ) -> Client:
+        """Load a logged-in client, reusing the session file.
+
+        Two login modes: sessionid cookie (no password) or username+password
+        (with optional TOTP). Picks based on which credential is provided.
+        """
         loop = asyncio.get_running_loop()
 
         def challenge_handler(uname, choice):
@@ -79,10 +103,13 @@ class InstagramClient:
             path = self.session_path(user_id)
             if os.path.exists(path):
                 cl.set_settings(cl.load_settings(path))
-            # instagrapi calls verification_code.strip() on its 2FA branch —
-            # pass "" (its default), never None, or a 2FA account crashes.
-            verification = pyotp.TOTP(totp_secret).now() if totp_secret else ""
-            cl.login(username, password, verification_code=verification)
+            if sessionid:
+                cl.login_by_sessionid(sessionid)
+            else:
+                # instagrapi calls verification_code.strip() on its 2FA branch —
+                # pass "" (its default), never None, or a 2FA account crashes.
+                verification = pyotp.TOTP(totp_secret).now() if totp_secret else ""
+                cl.login(username, password, verification_code=verification)
             return cl
 
         return await asyncio.to_thread(_build)
@@ -90,19 +117,23 @@ class InstagramClient:
     async def publish(
         self,
         user_id: int,
-        username: str,
-        password_enc: str,
+        username: Optional[str],
+        password_enc: Optional[str],
         totp_secret_enc: Optional[str],
+        sessionid_enc: Optional[str],
         caption: str,
         image_paths: list[str],
     ) -> str:
         """Publish a photo or carousel. Returns the media id (str)."""
-        password = self.crypto.decrypt(password_enc)
+        password = self.crypto.decrypt(password_enc) if password_enc else None
         totp_secret = (
             self.crypto.decrypt(totp_secret_enc) if totp_secret_enc else None
         )
+        sessionid = self.crypto.decrypt(sessionid_enc) if sessionid_enc else None
 
-        cl = await self._get_client(user_id, username, password, totp_secret)
+        cl = await self._get_client(
+            user_id, username, password, totp_secret, sessionid
+        )
 
         def _upload():
             if len(image_paths) == 1:
@@ -116,7 +147,9 @@ class InstagramClient:
         except Exception:
             # One retry: rebuild client (forces fresh login) then upload again.
             logger.warning("Instagram publish failed once, retrying after re-login")
-            cl = await self._get_client(user_id, username, password, totp_secret)
+            cl = await self._get_client(
+                user_id, username, password, totp_secret, sessionid
+            )
             return await asyncio.to_thread(_upload)
 
     async def logout(self, user_id: int) -> None:

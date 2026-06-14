@@ -109,6 +109,64 @@ async def cmd_iglogin(
     )
 
 
+@router.message(F.text.startswith("/igsession"))
+async def cmd_igsession(
+    message: types.Message,
+    bot: Bot,
+    storage: Storage,
+    instagram_client: InstagramClient,
+    crypto: Crypto,
+) -> None:
+    """Connect Instagram via the browser `sessionid` cookie (no password)."""
+    parts = message.text.split(maxsplit=1)
+    if len(parts) != 2 or len(parts[1].strip()) < 10:
+        await message.answer(
+            "❌ Использование: <code>/igsession КУКА_SESSIONID</code>\n\n"
+            "Как получить sessionid:\n"
+            "1. Откройте instagram.com в браузере и войдите\n"
+            "2. F12 → <b>Application</b> → Cookies → instagram.com\n"
+            "3. Скопируйте значение куки <code>sessionid</code>\n"
+            "4. Отправьте: <code>/igsession ВАШЕ_ЗНАЧЕНИЕ</code>"
+        )
+        return
+
+    sessionid = parts[1].strip()
+
+    # Delete the message so the session token doesn't stay in chat history.
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    if await storage.get_user(message.from_user.id) is None:
+        await storage.create_user(message.from_user.id)
+
+    status = await bot.send_message(
+        message.from_user.id, "⏳ Вхожу в Instagram по sessionid..."
+    )
+
+    try:
+        username = await instagram_client.login_by_sessionid(
+            message.from_user.id, sessionid
+        )
+    except Exception as e:
+        logger.error(f"Instagram sessionid login failed: {e}")
+        await status.edit_text(
+            f"❌ Ошибка входа: {e}\n\n"
+            "Возможно, sessionid недействителен или истёк. Получите новый "
+            "(см. /igsession без аргументов)."
+        )
+        return
+
+    enc_sid = crypto.encrypt(sessionid)
+    await storage.set_instagram_sessionid(message.from_user.id, username, enc_sid)
+    await status.edit_text(
+        f"✅ Instagram подключён по sessionid: <b>@{username}</b>\n"
+        f"Публикация включена. Выключить: <code>/instagram off</code>\n\n"
+        f"⚠️ sessionid периодически истекает — тогда обновите через /igsession."
+    )
+
+
 @router.message(F.text.startswith("/iglogout"))
 async def cmd_iglogout(
     message: types.Message,

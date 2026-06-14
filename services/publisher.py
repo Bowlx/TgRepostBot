@@ -102,7 +102,11 @@ class Publisher:
     async def _publish_instagram(
         self, user: User, text: str, photo_paths: list[str]
     ) -> DestResult:
-        if not user.instagram_username or not user.instagram_password_encrypted:
+        ig_password_mode = bool(
+            user.instagram_username and user.instagram_password_encrypted
+        )
+        ig_session_mode = bool(user.instagram_sessionid_encrypted)
+        if not (ig_password_mode or ig_session_mode):
             return DestResult("Instagram", False, "не подключён", skipped=True)
         if not user.instagram_enabled:
             return DestResult("Instagram", False, "пауза", skipped=True)
@@ -116,6 +120,7 @@ class Publisher:
                 user.instagram_username,
                 user.instagram_password_encrypted,
                 user.instagram_totp_secret_encrypted,
+                user.instagram_sessionid_encrypted,
                 text,
                 photo_paths,
             )

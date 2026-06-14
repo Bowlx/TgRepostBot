@@ -15,6 +15,7 @@ class User:
     instagram_username: Optional[str] = None
     instagram_password_encrypted: Optional[str] = None
     instagram_totp_secret_encrypted: Optional[str] = None
+    instagram_sessionid_encrypted: Optional[str] = None
     instagram_enabled: bool = True
 
 

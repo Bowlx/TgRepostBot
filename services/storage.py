@@ -36,6 +36,7 @@ class Storage:
                     instagram_username TEXT,
                     instagram_password_encrypted TEXT,
                     instagram_totp_secret_encrypted TEXT,
+                    instagram_sessionid_encrypted TEXT,
                     instagram_enabled INTEGER NOT NULL DEFAULT 1
                 )
                 """
@@ -48,6 +49,7 @@ class Storage:
                 ("instagram_username", "TEXT"),
                 ("instagram_password_encrypted", "TEXT"),
                 ("instagram_totp_secret_encrypted", "TEXT"),
+                ("instagram_sessionid_encrypted", "TEXT"),
                 ("instagram_enabled", "INTEGER NOT NULL DEFAULT 1"),
             ]
             for col, decl in migration_cols:
@@ -121,6 +123,7 @@ class Storage:
                 instagram_username=row["instagram_username"],
                 instagram_password_encrypted=row["instagram_password_encrypted"],
                 instagram_totp_secret_encrypted=row["instagram_totp_secret_encrypted"],
+                instagram_sessionid_encrypted=row["instagram_sessionid_encrypted"],
                 instagram_enabled=bool(row["instagram_enabled"]),
             )
 
@@ -171,10 +174,32 @@ class Storage:
                 SET instagram_username = ?,
                     instagram_password_encrypted = ?,
                     instagram_totp_secret_encrypted = ?,
+                    instagram_sessionid_encrypted = NULL,
                     instagram_enabled = 1
                 WHERE user_id = ?
                 """,
                 (username, enc_password, enc_totp, user_id),
+            )
+            await db.commit()
+
+    async def set_instagram_sessionid(
+        self,
+        user_id: int,
+        username: str,
+        enc_sessionid: str,
+    ) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                UPDATE users
+                SET instagram_username = ?,
+                    instagram_sessionid_encrypted = ?,
+                    instagram_password_encrypted = NULL,
+                    instagram_totp_secret_encrypted = NULL,
+                    instagram_enabled = 1
+                WHERE user_id = ?
+                """,
+                (username, enc_sessionid, user_id),
             )
             await db.commit()
 
@@ -185,7 +210,8 @@ class Storage:
                 UPDATE users
                 SET instagram_username = NULL,
                     instagram_password_encrypted = NULL,
-                    instagram_totp_secret_encrypted = NULL
+                    instagram_totp_secret_encrypted = NULL,
+                    instagram_sessionid_encrypted = NULL
                 WHERE user_id = ?
                 """,
                 (user_id,),
@@ -273,6 +299,7 @@ class Storage:
                     instagram_username=row["instagram_username"],
                     instagram_password_encrypted=row["instagram_password_encrypted"],
                     instagram_totp_secret_encrypted=row["instagram_totp_secret_encrypted"],
+                    instagram_sessionid_encrypted=row["instagram_sessionid_encrypted"],
                     instagram_enabled=bool(row["instagram_enabled"]),
                 )
                 for row in rows
