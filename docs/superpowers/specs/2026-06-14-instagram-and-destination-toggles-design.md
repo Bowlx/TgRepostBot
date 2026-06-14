@@ -23,11 +23,16 @@ user can temporarily pause posting to one platform without disconnecting it.
 
 ### Functional
 
-1. **Connect Instagram** via `/iglogin <username> <password>`:
+1. **Connect Instagram** via `/iglogin <username> <password> [totp_secret]`:
    - Logs in through `instagrapi`, saves a session file.
    - Deletes the user's message containing the password immediately.
-   - Stores username (plaintext) and password (Fernet-encrypted) in DB.
+   - Stores username (plaintext), password (Fernet-encrypted), and the
+     optional TOTP secret (Fernet-encrypted) in DB.
    - Instagram is **enabled by default** after a successful login.
+   - **2FA support** (both kinds — see "2FA Handling" below):
+     - TOTP (authenticator app): fully automatic via `pyotp`.
+     - SMS/email challenge: interactive — bot prompts the user for the code
+       and resolves the challenge.
 2. **Disconnect Instagram** via `/iglogout` — removes credentials + session file.
 3. **Per-destination toggles**:
    - `/linkedin on|off` and `/instagram on|off` toggle publishing without
@@ -63,6 +68,29 @@ Each destination is a small strategy object with a uniform interface so
 `channel.py`, `post.py`, and `approval.py` stop hard-coding LinkedIn and just
 call the publisher.
 
+## 2FA Handling
+
+Instagram accounts may require 2FA at login. Both common forms are supported:
+
+**TOTP (authenticator app — Google Authenticator / Authy):**
+- The user passes the TOTP secret (the base32 seed from the QR code) as the
+  optional third `/iglogin` argument.
+- Stored Fernet-encrypted in DB (`instagram_totp_secret_enc`).
+- At every login, `pyotp.TOTP(secret).now()` generates the 6-digit code and
+  is passed as `verification_code` to `instagrapi`'s `login()`. Fully
+  automatic — no user interaction after setup.
+
+**SMS / email challenge:**
+- When `cl.login()` raises `ChallengeRequired`, the login coroutine (running
+  in a worker thread) signals the async side. The bot asks the user for the
+  code ("Введите код из SMS/email"), FSM waits up to ~5 min for the reply,
+  and the code is fed to `instagrapi`'s challenge resolver.
+- Implemented via an `asyncio` event/future bridge between the login thread
+  and the FSM handler; the user code is forwarded back into the thread.
+
+If no 2FA is configured on the account, neither path activates and login
+proceeds normally with just username + password.
+
 ## Components
 
 ### services/crypto.py (new)
@@ -81,13 +109,21 @@ encrypted; the LinkedIn OAuth token and Instagram username are stored as-is.
 
 ```python
 class InstagramClient:
-    def __init__(self, session_dir: str, crypto: Crypto): ...
-    async def login(self, user_id: int, username: str, password: str) -> None
-        # logs in via instagrapi (in thread), persists session file
+    def __init__(self, session_dir: str, crypto: Crypto,
+                 code_provider=None): ...
+        # code_provider: async callable(user_id, choice) -> str, used to ask
+        # the user for an SMS/email challenge code when 2FA requires it.
+    async def login(self, user_id: int, username: str, password: str,
+                    totp_secret: Optional[str] = None) -> None
+        # logs in via instagrapi (in thread):
+        #  - if totp_secret: pass verification_code=pyotp.TOTP(secret).now()
+        #  - on ChallengeRequired: bridge to code_provider for SMS/email code
+        # persists session file on success
     async def publish(self, user_id: int, username: str, password_enc: str,
-                      caption: str, image_paths: list[str]) -> dict
-        # loads/reuses session (re-login on expiry via decrypted password),
-        # photo_upload (1 image) or album_upload (carousel), returns IG result
+                      totp_secret_enc: Optional[str], caption: str,
+                      image_paths: list[str]) -> dict
+        # loads/reuses session (re-login on expiry via decrypted password +
+        # totp), photo_upload (1 image) or album_upload (carousel)
     async def logout(self, user_id: int) -> None
         # deletes session file
 ```
@@ -125,6 +161,7 @@ class Publisher:
 `User` gains:
 - `instagram_username: Optional[str] = None`
 - `instagram_password_encrypted: Optional[str] = None`
+- `instagram_totp_secret_encrypted: Optional[str] = None`
 - `linkedin_enabled: bool = True`
 - `instagram_enabled: bool = True`
 
@@ -135,7 +172,7 @@ the independent toggle.
 
 - New columns on `users` (with idempotent `ALTER TABLE` migrations for existing
   DBs, same pattern already used for `translate_enabled`/`approve_enabled`).
-- New methods: `set_instagram_creds(user_id, username, enc_password)`,
+- New methods: `set_instagram_creds(user_id, username, enc_password, enc_totp=None)`,
   `clear_instagram_creds(user_id)`, `set_linkedin_enabled(user_id, bool)`,
   `set_instagram_enabled(user_id, bool)`.
 
@@ -159,7 +196,7 @@ Add `encryption_key: str` (required). `.env.example` documents it.
 
 | Command | Action |
 |---------|--------|
-| `/iglogin <user> <pass>` | Connect Instagram (message auto-deleted) |
+| `/iglogin <user> <pass> [totp_secret]` | Connect Instagram (message auto-deleted) |
 | `/iglogout` | Disconnect Instagram (creds + session removed) |
 | `/linkedin on\|off` | Toggle LinkedIn publishing |
 | `/instagram on\|off` | Toggle Instagram publishing |
@@ -168,9 +205,8 @@ Add `encryption_key: str` (required). `.env.example` documents it.
 
 ## Error Handling
 
-- Instagram login failure (bad password, 2FA challenge, network) → reported to
-  user; nothing stored. A note explains that 2FA-enabled accounts may need the
-  challenge handled manually (out of scope for v1).
+- Instagram login failure (bad password, network, or 2FA code mismatch after
+  the interactive retry) → reported to user; nothing stored.
 - Instagram session expiry mid-publish → automatic re-login using the decrypted
   password, then one retry.
 - Per-destination failures are isolated: if LinkedIn succeeds but Instagram
@@ -181,12 +217,10 @@ Add `encryption_key: str` (required). `.env.example` documents it.
 
 - `instagrapi` (new)
 - `cryptography` (new, for Fernet)
+- `pyotp` (new, for TOTP 2FA code generation)
 
 ## Open Risks
 
 - `instagrapi` reverse-engineers Instagram's private API → periodic breakage
   and a non-zero ban risk. Mitigations: reuse stable session files, avoid
   aggressive posting rates, one retry on transient errors only.
-- 2FA accounts: instagrapi supports challenge handling but it requires an
-  interactive code step not covered by `/iglogin`. v1 documents this as a
-  limitation; users without 2FA work out of the box.
