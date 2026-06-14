@@ -5,20 +5,27 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from bot.handlers import start, settings, channel, forward, post, setup, approval
+from bot.handlers import start, settings, channel, forward, post, setup, approval, instagram
 from config import get_settings
 from services.storage import Storage
 from services.translator import Translator
 from services.linkedin import LinkedInClient
+from services.crypto import Crypto
+from services.instagram import InstagramClient
+from services.publisher import Publisher
 
 logger = logging.getLogger(__name__)
 
 
 async def service_middleware(handler, event, data):
-    data["storage"] = data["dispatcher"]["storage"]
-    data["translator"] = data["dispatcher"]["translator"]
-    data["linkedin_client"] = data["dispatcher"]["linkedin"]
-    data["app_config"] = data["dispatcher"]["config"]
+    dp = data["dispatcher"]
+    data["storage"] = dp["storage"]
+    data["translator"] = dp["translator"]
+    data["linkedin_client"] = dp["linkedin"]
+    data["instagram_client"] = dp["instagram"]
+    data["publisher"] = dp["publisher"]
+    data["crypto"] = dp["crypto"]
+    data["app_config"] = dp["config"]
     return await handler(event, data)
 
 
@@ -32,13 +39,20 @@ async def main() -> None:
 
     translator = Translator(storage=storage)
     linkedin = LinkedInClient(storage=storage)
+    crypto = Crypto(cfg.encryption_key)
+    instagram = InstagramClient(session_dir="data", crypto=crypto)
+    publisher = Publisher(linkedin=linkedin, instagram=instagram, bot=None)
 
     bot = Bot(token=cfg.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    publisher.bot = bot  # bot is needed at publish time
 
     dp = Dispatcher()
     dp["storage"] = storage
     dp["translator"] = translator
     dp["linkedin"] = linkedin
+    dp["instagram"] = instagram
+    dp["publisher"] = publisher
+    dp["crypto"] = crypto
     dp["config"] = cfg
 
     dp.update.middleware(service_middleware)
@@ -46,6 +60,7 @@ async def main() -> None:
     dp.include_router(setup.router)
     dp.include_router(start.router)
     dp.include_router(settings.router)
+    dp.include_router(instagram.router)
     dp.include_router(approval.router)
     dp.include_router(channel.router)
     dp.include_router(forward.router)
