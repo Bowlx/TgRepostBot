@@ -11,6 +11,11 @@ class User:
     approve_enabled: bool = False
     linkedin_access_token: Optional[str] = None
     linkedin_person_urn: Optional[str] = None
+    linkedin_enabled: bool = True
+    instagram_username: Optional[str] = None
+    instagram_password_encrypted: Optional[str] = None
+    instagram_totp_secret_encrypted: Optional[str] = None
+    instagram_enabled: bool = True
 
 
 @dataclass

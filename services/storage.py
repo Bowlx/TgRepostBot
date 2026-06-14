@@ -31,16 +31,28 @@ class Storage:
                     translate_enabled INTEGER NOT NULL DEFAULT 1,
                     approve_enabled INTEGER NOT NULL DEFAULT 0,
                     linkedin_access_token TEXT,
-                    linkedin_person_urn TEXT
+                    linkedin_person_urn TEXT,
+                    linkedin_enabled INTEGER NOT NULL DEFAULT 1,
+                    instagram_username TEXT,
+                    instagram_password_encrypted TEXT,
+                    instagram_totp_secret_encrypted TEXT,
+                    instagram_enabled INTEGER NOT NULL DEFAULT 1
                 )
                 """
             )
-            # Migrations: add columns for existing databases
-            for col, default in [("translate_enabled", 1), ("approve_enabled", 0)]:
+            # Migrations: add columns for existing databases (idempotent).
+            migration_cols = [
+                ("translate_enabled", "INTEGER NOT NULL DEFAULT 1"),
+                ("approve_enabled", "INTEGER NOT NULL DEFAULT 0"),
+                ("linkedin_enabled", "INTEGER NOT NULL DEFAULT 1"),
+                ("instagram_username", "TEXT"),
+                ("instagram_password_encrypted", "TEXT"),
+                ("instagram_totp_secret_encrypted", "TEXT"),
+                ("instagram_enabled", "INTEGER NOT NULL DEFAULT 1"),
+            ]
+            for col, decl in migration_cols:
                 try:
-                    await db.execute(
-                        f"ALTER TABLE users ADD COLUMN {col} INTEGER NOT NULL DEFAULT {default}"
-                    )
+                    await db.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
                 except aiosqlite.OperationalError:
                     pass  # Column already exists
             await db.execute(
@@ -105,6 +117,11 @@ class Storage:
                 approve_enabled=bool(row["approve_enabled"]),
                 linkedin_access_token=row["linkedin_access_token"],
                 linkedin_person_urn=row["linkedin_person_urn"],
+                linkedin_enabled=bool(row["linkedin_enabled"]),
+                instagram_username=row["instagram_username"],
+                instagram_password_encrypted=row["instagram_password_encrypted"],
+                instagram_totp_secret_encrypted=row["instagram_totp_secret_encrypted"],
+                instagram_enabled=bool(row["instagram_enabled"]),
             )
 
     async def create_user(self, user_id: int, source_lang: str = "ru", target_lang: str = "en") -> User:
@@ -136,6 +153,57 @@ class Storage:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "UPDATE users SET approve_enabled = ? WHERE user_id = ?",
+                (1 if enabled else 0, user_id),
+            )
+            await db.commit()
+
+    async def set_instagram_creds(
+        self,
+        user_id: int,
+        username: str,
+        enc_password: str,
+        enc_totp: Optional[str] = None,
+    ) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                UPDATE users
+                SET instagram_username = ?,
+                    instagram_password_encrypted = ?,
+                    instagram_totp_secret_encrypted = ?,
+                    instagram_enabled = 1
+                WHERE user_id = ?
+                """,
+                (username, enc_password, enc_totp, user_id),
+            )
+            await db.commit()
+
+    async def clear_instagram_creds(self, user_id: int) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                UPDATE users
+                SET instagram_username = NULL,
+                    instagram_password_encrypted = NULL,
+                    instagram_totp_secret_encrypted = NULL
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            )
+            await db.commit()
+
+    async def set_linkedin_enabled(self, user_id: int, enabled: bool) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE users SET linkedin_enabled = ? WHERE user_id = ?",
+                (1 if enabled else 0, user_id),
+            )
+            await db.commit()
+
+    async def set_instagram_enabled(self, user_id: int, enabled: bool) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE users SET instagram_enabled = ? WHERE user_id = ?",
                 (1 if enabled else 0, user_id),
             )
             await db.commit()
@@ -180,11 +248,16 @@ class Storage:
             await db.execute("DELETE FROM pending_posts WHERE user_id = ?", (user_id,))
             await db.commit()
 
-    async def get_all_linkedin_users(self) -> list[User]:
+    async def get_all_active_users(self) -> list[User]:
+        """Users with at least one connected destination (LinkedIn OR Instagram)."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
-                "SELECT * FROM users WHERE linkedin_access_token IS NOT NULL"
+                """
+                SELECT * FROM users
+                WHERE linkedin_access_token IS NOT NULL
+                   OR instagram_username IS NOT NULL
+                """
             )
             rows = await cursor.fetchall()
             return [
@@ -196,6 +269,11 @@ class Storage:
                     approve_enabled=bool(row["approve_enabled"]),
                     linkedin_access_token=row["linkedin_access_token"],
                     linkedin_person_urn=row["linkedin_person_urn"],
+                    linkedin_enabled=bool(row["linkedin_enabled"]),
+                    instagram_username=row["instagram_username"],
+                    instagram_password_encrypted=row["instagram_password_encrypted"],
+                    instagram_totp_secret_encrypted=row["instagram_totp_secret_encrypted"],
+                    instagram_enabled=bool(row["instagram_enabled"]),
                 )
                 for row in rows
             ]
