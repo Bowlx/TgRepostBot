@@ -74,7 +74,9 @@
       "Bash(git rm *)",
       "Bash(grep -rn \"import approval\\\\|approval\\\\.router\\\\|approval_keyboard\\\\|apv:\" bot/)",
       "Bash(python -m py_compile models.py services/storage.py bot/handlers/preview_ui.py bot/handlers/forward.py bot/handlers/channel.py bot/handlers/post.py bot/main.py)",
-      "Bash(python -c \"from bot.main import main; from bot.handlers.preview_ui import router, preview_keyboard, preview_text; print\\('IMPORT OK'\\)\")"
+      "Bash(python -c \"from bot.main import main; from bot.handlers.preview_ui import router, preview_keyboard, preview_text; print\\('IMPORT OK'\\)\")",
+      "Bash(python -m py_compile bot/handlers/preview_ui.py)",
+      "Bash(python -c \"from bot.handlers.preview_ui import router, preview_keyboard; print\\('OK'\\); kb = preview_keyboard\\('m', 1, 'custom'\\); print\\('custom rows:', len\\(kb.inline_keyboard\\)\\); kb2 = preview_keyboard\\('m', 1, 'translated'\\); print\\('translated rows:', len\\(kb2.inline_keyboard\\)\\)\")"
     ]
   }
 }

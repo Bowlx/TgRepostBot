@@ -64,14 +64,19 @@ def _src_btn(label: str, kind: str, rid: int, action: str, active: bool) -> Inli
 
 
 def preview_keyboard(kind: str, rid: int, active_mode: str) -> InlineKeyboardMarkup:
-    row1 = [
-        _src_btn("🌐 Оригинал", kind, rid, "o", active_mode == "original"),
-        _src_btn("🔤 Перевод", kind, rid, "t", active_mode == "translated"),
-        _src_btn("✏️ Своё", kind, rid, "c", active_mode == "custom"),
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            _src_btn("🌐 Оригинал", kind, rid, "o", active_mode == "original"),
+            _src_btn("🔤 Перевод", kind, rid, "t", active_mode == "translated"),
+            _src_btn("✏️ Своё", kind, rid, "c", active_mode == "custom"),
+        ]
     ]
-    row2 = [InlineKeyboardButton(text="❌ Отменить", callback_data=f"pv:{kind}:{rid}:x")]
-    row3 = [InlineKeyboardButton(text="✅ Опубликовать", callback_data=f"pv:{kind}:{rid}:p", style="primary")]
-    return InlineKeyboardMarkup(inline_keyboard=[row1, row2, row3])
+    # When custom text is active, offer an "Изменить" button to re-edit it.
+    if active_mode == "custom":
+        rows.append([InlineKeyboardButton(text="✏️ Изменить", callback_data=f"pv:{kind}:{rid}:c")])
+    rows.append([InlineKeyboardButton(text="❌ Отменить", callback_data=f"pv:{kind}:{rid}:x")])
+    rows.append([InlineKeyboardButton(text="✅ Опубликовать", callback_data=f"pv:{kind}:{rid}:p", style="primary")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def preview_text(record, kind: str) -> str:
@@ -132,11 +137,17 @@ async def _refresh(callback, storage, kind, rid) -> None:
 
 async def _start_custom(callback, state, kind, rid, record) -> None:
     await state.set_state(CustomText.waiting)
-    await state.update_data(kind=kind, rid=rid, msg_id=callback.message.message_id)
-    await callback.message.answer(
-        "✏️ Отправьте свой текст поста.\n"
-        "<i>Отправьте /cancel, чтобы оставить текущий.</i>\n\n"
-        f"Текущий текст (для копирования):\n\n{record.active_text}"
+    # Send ONE reference message with the current text — it (and the user's
+    # reply) get deleted after the edit, leaving only the preview message.
+    ref = await callback.message.answer(
+        f"📋 <b>Текущий текст</b> (скопируйте и отредактируйте):\n\n"
+        f"{record.active_text}\n\n"
+        f"✏️ Пришлите новый текст. /cancel — оставить текущий."
+    )
+    await state.update_data(
+        kind=kind, rid=rid,
+        msg_id=callback.message.message_id,   # the preview message to update
+        ref_id=ref.message_id,                 # this reference message to delete
     )
 
 
@@ -174,24 +185,21 @@ async def _publish(callback, bot, storage, publisher, kind, rid) -> None:
 # ── Custom-text FSM ────────────────────────────────────────
 
 
+async def _delete_safe(bot: Bot, chat_id: int, message_id: int) -> None:
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception as e:
+        logger.debug(f"delete {message_id} failed: {e}")
+
+
 @router.message(CustomText.waiting, F.text.lower() == "/cancel")
 async def cancel_custom(message: types.Message, state: FSMContext, storage: Storage, bot: Bot) -> None:
     data = await state.get_data()
     await state.clear()
-    kind = data.get("kind")
-    rid = data.get("rid")
-    msg_id = data.get("msg_id")
-    record = await _get_record(storage, kind, rid) if (kind and rid) else None
-    if record and msg_id:
-        try:
-            await bot.edit_message_text(
-                preview_text(record, kind),
-                chat_id=message.chat.id,
-                message_id=msg_id,
-                reply_markup=preview_keyboard(kind, rid, record.active_mode),
-            )
-        except Exception:
-            pass
+    # Delete the reference message; keep the user's "/cancel" cleanup tidy too.
+    if data.get("ref_id"):
+        await _delete_safe(bot, message.chat.id, data["ref_id"])
+    await _delete_safe(bot, message.chat.id, message.message_id)
     await message.answer("Редактирование отменено, текст не изменён.")
 
 
@@ -204,15 +212,25 @@ async def receive_custom_text(message: types.Message, state: FSMContext, storage
     kind = data.get("kind")
     rid = data.get("rid")
     msg_id = data.get("msg_id")
+    ref_id = data.get("ref_id")
     record = await _get_record(storage, kind, rid) if (kind and rid) else None
+
+    # Clean up: delete both the reference message and the user's input message
+    # so the chat is left with only the preview message.
+    if ref_id:
+        await _delete_safe(bot, message.chat.id, ref_id)
+    await _delete_safe(bot, message.chat.id, message.message_id)
+
     if record is None:
         await message.answer("❌ Пост уже недоступен.")
         return
 
     new_text = format_text(message.text)
     await _set_active(storage, kind, rid, "custom", new_text)
+    record.active_text = new_text
+    record.active_mode = "custom"
 
-    # Update the original preview message in place if we tracked it.
+    # Update the original preview message in place.
     if msg_id:
         try:
             await bot.edit_message_text(
@@ -225,8 +243,6 @@ async def receive_custom_text(message: types.Message, state: FSMContext, storage
         except Exception:
             pass
     # Fallback: send a fresh preview.
-    record.active_text = new_text
-    record.active_mode = "custom"
     await message.answer(
         preview_text(record, kind), reply_markup=preview_keyboard(kind, rid, "custom")
     )
