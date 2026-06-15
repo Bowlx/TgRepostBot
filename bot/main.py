@@ -40,16 +40,16 @@ async def main() -> None:
     translator = Translator(storage=storage)
     linkedin = LinkedInClient(storage=storage)
     crypto = Crypto(cfg.encryption_key)
-    instagram = InstagramClient(session_dir="data", crypto=crypto)
+    instagram_client = InstagramClient(session_dir="data", crypto=crypto)
 
     bot = Bot(token=cfg.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    publisher = Publisher(linkedin=linkedin, instagram=instagram, bot=bot)
+    publisher = Publisher(linkedin=linkedin, instagram=instagram_client, bot=bot)
 
     dp = Dispatcher()
     dp["storage"] = storage
     dp["translator"] = translator
     dp["linkedin"] = linkedin
-    dp["instagram"] = instagram
+    dp["instagram"] = instagram_client
     dp["publisher"] = publisher
     dp["crypto"] = crypto
     dp["config"] = cfg
