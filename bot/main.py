@@ -4,6 +4,7 @@ import sys
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import BotCommand
 
 from bot.handlers import start, settings, channel, forward, post, setup, approval, instagram
 from config import get_settings
@@ -29,6 +30,39 @@ async def service_middleware(handler, event, data):
     return await handler(event, data)
 
 
+async def _setup_bot_menu(bot: Bot) -> None:
+    """Register the Telegram command menu (the "/" dropdown) + profile text."""
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Статус и помощь"),
+            BotCommand(command="post", description="Опубликовать пост"),
+            BotCommand(command="preview", description="Превью поста"),
+            BotCommand(command="skip", description="Отменить пост"),
+            BotCommand(command="destinations", description="Куда публикуем"),
+            BotCommand(command="translate", description="Перевод вкл/выкл"),
+            BotCommand(command="approve", description="Подтверждение постов вкл/выкл"),
+            BotCommand(command="linkedin", description="LinkedIn вкл/выкл"),
+            BotCommand(command="instagram", description="Instagram вкл/выкл"),
+            BotCommand(command="setlang", description="Языки перевода (ru en)"),
+            BotCommand(command="iglogin", description="Подключить Instagram"),
+            BotCommand(command="igsession", description="Instagram по sessionid"),
+            BotCommand(command="iglogout", description="Отключить Instagram"),
+            BotCommand(command="auth", description="Подключить LinkedIn"),
+            BotCommand(command="setup", description="Настроить LinkedIn App"),
+        ]
+    )
+    await bot.set_my_short_description(
+        "Кросспостинг из Telegram в LinkedIn и Instagram с переводом."
+    )
+    await bot.set_my_description(
+        "Пересылайте посты — бот переведёт и опубликует их в LinkedIn и Instagram.\n\n"
+        "Работает в двух режимах:\n"
+        "• Авто — добавьте бота в Telegram-канал\n"
+        "• Ручной — перешлите пост и нажмите /post\n\n"
+        "Все настройки — через /start и /setup прямо в чате."
+    )
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
@@ -44,6 +78,8 @@ async def main() -> None:
 
     bot = Bot(token=cfg.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     publisher = Publisher(linkedin=linkedin, instagram=instagram_client, bot=bot)
+
+    await _setup_bot_menu(bot)
 
     dp = Dispatcher()
     dp["storage"] = storage
