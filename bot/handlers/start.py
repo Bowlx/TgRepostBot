@@ -58,16 +58,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         welcome += "Нажмите кнопку ниже для подключения LinkedIn 👇"
         await message.answer(welcome, reply_markup=keyboard)
     else:
-        welcome += (
-            "<b>Команды:</b>\n"
-            "• Перешлите пост — превью (с переводом, если вкл)\n"
-            "• <code>/post</code> — опубликовать во все destination\n"
-            "• <code>/iglogin логин пароль [totp]</code> — подключить Instagram\n"
-            "• <code>/igsession КУКА</code> — Instagram по sessionid\n"
-            "• <code>/linkedin on|off</code> · <code>/instagram on|off</code> — пауза\n"
-            "• <code>/destinations</code> — статус куда публикуем\n"
-            "• <code>/setlang ru en</code> · <code>/translate off</code>\n"
-            "• <code>/approve on</code> — подтверждение постов\n"
-            "• <code>/setup</code> — перенастроить LinkedIn"
-        )
-        await message.answer(welcome)
+        from bot.handlers.panel import build_panel
+        text, kb = await build_panel(storage, message.from_user.id)
+        welcome += "Управление — через кнопки ниже 👇"
+        await message.answer(welcome + "\n\n" + text, reply_markup=kb)

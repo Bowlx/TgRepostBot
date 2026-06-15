@@ -67,7 +67,9 @@
       "Bash(ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new server 'echo \"=== HOSTNAME ===\"; hostname; echo \"=== OS ===\"; cat /etc/os-release 2>/dev/null | grep -E \"PRETTY|VERSION=\"; echo \"=== TZ \\(locale hint\\) ===\"; timedatectl 2>/dev/null | grep -i \"time zone\"; echo \"=== UPTIME ===\"; uptime; echo \"=== DISK ===\"; df -h / | tail -1; echo \"=== MEM ===\"; free -h | head -2')",
       "Bash(ssh server *)",
       "Read(//c/Users/Ya/.claude/projects/C--Users-Ya/memory/**)",
-      "Bash(python -m py_compile bot/main.py bot/handlers/start.py)"
+      "Bash(python -m py_compile bot/main.py bot/handlers/start.py)",
+      "Bash(python -m py_compile bot/handlers/panel.py bot/handlers/start.py bot/main.py)",
+      "Bash(python -c \"from bot.main import main; from bot.handlers.panel import router; print\\('IMPORT OK'\\)\")"
     ]
   }
 }

@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
 
-from bot.handlers import start, settings, channel, forward, post, setup, approval, instagram
+from bot.handlers import start, settings, channel, forward, post, setup, approval, instagram, panel
 from config import get_settings
 from services.storage import Storage
 from services.translator import Translator
@@ -35,6 +35,7 @@ async def _setup_bot_menu(bot: Bot) -> None:
     await bot.set_my_commands(
         [
             BotCommand(command="start", description="Статус и помощь"),
+            BotCommand(command="menu", description="🎛 Панель управления"),
             BotCommand(command="post", description="Опубликовать пост"),
             BotCommand(command="preview", description="Превью поста"),
             BotCommand(command="skip", description="Отменить пост"),
@@ -98,6 +99,7 @@ async def main() -> None:
 
     dp.include_router(setup.router)
     dp.include_router(start.router)
+    dp.include_router(panel.router)
     dp.include_router(settings.router)
     dp.include_router(instagram.router)
     dp.include_router(approval.router)
