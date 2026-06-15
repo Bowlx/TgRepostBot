@@ -63,7 +63,9 @@ class Storage:
                     user_id INTEGER PRIMARY KEY,
                     original_text TEXT NOT NULL,
                     translated_text TEXT NOT NULL,
-                    photo_file_ids TEXT NOT NULL DEFAULT '[]'
+                    photo_file_ids TEXT NOT NULL DEFAULT '[]',
+                    active_text TEXT NOT NULL DEFAULT '',
+                    active_mode TEXT NOT NULL DEFAULT 'translated'
                 )
                 """
             )
@@ -74,10 +76,22 @@ class Storage:
                     user_id INTEGER NOT NULL,
                     original_text TEXT NOT NULL,
                     translated_text TEXT NOT NULL,
-                    photo_file_ids TEXT NOT NULL DEFAULT '[]'
+                    photo_file_ids TEXT NOT NULL DEFAULT '[]',
+                    active_text TEXT NOT NULL DEFAULT '',
+                    active_mode TEXT NOT NULL DEFAULT 'translated'
                 )
                 """
             )
+            # Migrations: add active_text/active_mode to existing pending tables.
+            for table in ("pending_posts", "pending_approvals"):
+                for col, decl in [
+                    ("active_text", "TEXT NOT NULL DEFAULT ''"),
+                    ("active_mode", "TEXT NOT NULL DEFAULT 'translated'"),
+                ]:
+                    try:
+                        await db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
+                    except aiosqlite.OperationalError:
+                        pass
             await db.commit()
 
     # ── Global settings ──────────────────────────────────────
@@ -243,13 +257,17 @@ class Storage:
             await db.commit()
 
     async def save_pending_post(self, user_id: int, original_text: str, translated_text: str, photo_file_ids: list[str]) -> None:
+        # Default active text = the translated version (falls back to original if empty).
+        active_text = translated_text or original_text
+        active_mode = "translated" if (translated_text and translated_text != original_text) else "original"
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
-                INSERT OR REPLACE INTO pending_posts (user_id, original_text, translated_text, photo_file_ids)
-                VALUES (?, ?, ?, ?)
+                INSERT OR REPLACE INTO pending_posts
+                    (user_id, original_text, translated_text, photo_file_ids, active_text, active_mode)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, original_text, translated_text, json.dumps(photo_file_ids)),
+                (user_id, original_text, translated_text, json.dumps(photo_file_ids), active_text, active_mode),
             )
             await db.commit()
 
@@ -267,6 +285,8 @@ class Storage:
                 original_text=row["original_text"],
                 translated_text=row["translated_text"],
                 photo_file_ids=json.loads(row["photo_file_ids"]),
+                active_text=row["active_text"],
+                active_mode=row["active_mode"],
             )
 
     async def delete_pending_post(self, user_id: int) -> None:
@@ -310,13 +330,16 @@ class Storage:
     async def create_approval(
         self, user_id: int, original_text: str, translated_text: str, photo_file_ids: list[str]
     ) -> int:
+        active_text = translated_text or original_text
+        active_mode = "translated" if (translated_text and translated_text != original_text) else "original"
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 """
-                INSERT INTO pending_approvals (user_id, original_text, translated_text, photo_file_ids)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO pending_approvals
+                    (user_id, original_text, translated_text, photo_file_ids, active_text, active_mode)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, original_text, translated_text, json.dumps(photo_file_ids)),
+                (user_id, original_text, translated_text, json.dumps(photo_file_ids), active_text, active_mode),
             )
             await db.commit()
             return cursor.lastrowid
@@ -336,7 +359,25 @@ class Storage:
                 original_text=row["original_text"],
                 translated_text=row["translated_text"],
                 photo_file_ids=json.loads(row["photo_file_ids"]),
+                active_text=row["active_text"],
+                active_mode=row["active_mode"],
             )
+
+    async def set_pending_active(self, user_id: int, mode: str, text: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE pending_posts SET active_mode = ?, active_text = ? WHERE user_id = ?",
+                (mode, text, user_id),
+            )
+            await db.commit()
+
+    async def set_approval_active(self, approval_id: int, mode: str, text: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE pending_approvals SET active_mode = ?, active_text = ? WHERE id = ?",
+                (mode, text, approval_id),
+            )
+            await db.commit()
 
     async def update_approval_text(self, approval_id: int, translated_text: str) -> None:
         async with aiosqlite.connect(self.db_path) as db:

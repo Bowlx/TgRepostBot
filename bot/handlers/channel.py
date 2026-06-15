@@ -17,18 +17,6 @@ aggregator = MediaGroupAggregator(delay=1.0)
 router.channel_post.filter(F.chat.type == "channel")
 
 
-def approval_keyboard(approval_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="✅ Опубликовать", callback_data=f"apv:{approval_id}:pub"),
-                InlineKeyboardButton(text="✏️ Изменить", callback_data=f"apv:{approval_id}:edit"),
-                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"apv:{approval_id}:skip"),
-            ]
-        ]
-    )
-
-
 @router.channel_post(F.text | F.photo)
 async def handle_channel_post(
     message: types.Message,
@@ -65,13 +53,13 @@ async def handle_channel_post(
                 approval_id = await storage.create_approval(
                     user.user_id, original_text, text, photo_file_ids
                 )
-                preview = f"🆕 <b>Новый пост из канала</b>\n\n{text}\n\n"
-                if photo_file_ids:
-                    preview += f"🖼️ Изображений: {len(photo_file_ids)} шт.\n\n"
-                preview += "Подтвердите публикацию:"
+                approval = await storage.get_approval(approval_id)
+                from bot.handlers.preview_ui import preview_text, preview_keyboard
                 try:
                     await bot.send_message(
-                        user.user_id, preview, reply_markup=approval_keyboard(approval_id)
+                        user.user_id,
+                        preview_text(approval, "a"),
+                        reply_markup=preview_keyboard("a", approval_id, approval.active_mode),
                     )
                 except Exception as e:
                     logger.error(f"Failed to send approval DM to {user.user_id}: {e}")

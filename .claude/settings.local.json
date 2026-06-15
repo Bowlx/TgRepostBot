@@ -70,7 +70,11 @@
       "Bash(python -m py_compile bot/main.py bot/handlers/start.py)",
       "Bash(python -m py_compile bot/handlers/panel.py bot/handlers/start.py bot/main.py)",
       "Bash(python -c \"from bot.main import main; from bot.handlers.panel import router; print\\('IMPORT OK'\\)\")",
-      "Bash(python -m py_compile bot/handlers/panel.py bot/handlers/start.py)"
+      "Bash(python -m py_compile bot/handlers/panel.py bot/handlers/start.py)",
+      "Bash(git rm *)",
+      "Bash(grep -rn \"import approval\\\\|approval\\\\.router\\\\|approval_keyboard\\\\|apv:\" bot/)",
+      "Bash(python -m py_compile models.py services/storage.py bot/handlers/preview_ui.py bot/handlers/forward.py bot/handlers/channel.py bot/handlers/post.py bot/main.py)",
+      "Bash(python -c \"from bot.main import main; from bot.handlers.preview_ui import router, preview_keyboard, preview_text; print\\('IMPORT OK'\\)\")"
     ]
   }
 }

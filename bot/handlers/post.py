@@ -17,14 +17,11 @@ async def cmd_preview(message: types.Message, storage: Storage) -> None:
         await message.answer("❌ Нет отложенного поста. Перешлите сообщение боту.")
         return
 
-    text = (
-        f"<b>📋 Оригинал:</b>\n{pending.original_text}\n\n"
-        f"<b>🌐 Перевод:</b>\n{pending.translated_text}\n\n"
+    from bot.handlers.preview_ui import preview_text, preview_keyboard
+    await message.answer(
+        preview_text(pending, "m"),
+        reply_markup=preview_keyboard("m", message.from_user.id, pending.active_mode),
     )
-    if pending.photo_file_ids:
-        text += f"🖼️ Изображений: {len(pending.photo_file_ids)} шт.\n\n"
-    text += "<code>/post</code> — опубликовать\n<code>/skip</code> — отменить"
-    await message.answer(text)
 
 
 @router.message(Command("post"))
@@ -34,6 +31,7 @@ async def cmd_post(
     storage: Storage,
     publisher: Publisher,
 ) -> None:
+    """Publish the pending post's active text to all destinations."""
     pending = await storage.get_pending_post(message.from_user.id)
     if pending is None:
         await message.answer("❌ Нет отложенного поста. Перешлите сообщение боту.")
@@ -42,16 +40,16 @@ async def cmd_post(
     user = await storage.get_user(message.from_user.id)
     connected = (
         user is not None
-        and (user.linkedin_access_token or user.instagram_username)
+        and (user.linkedin_access_token or user.instagram_username or user.instagram_sessionid_encrypted)
     )
     if not connected:
-        await message.answer("❌ Нет подключённых destination. Используйте /auth или /iglogin")
+        await message.answer("❌ Нет подключённых destination. Откройте /start")
         return
 
     await message.answer("⏳ Публикую...")
 
     results = await publisher.publish_to_all(
-        user, pending.translated_text, pending.photo_file_ids
+        user, pending.active_text or pending.translated_text, pending.photo_file_ids
     )
 
     if any(r.ok for r in results):

@@ -57,14 +57,12 @@ async def handle_forwarded(
             translated_text=translated_text,
             photo_file_ids=photo_file_ids,
         )
+        pending = await storage.get_pending_post(message.from_user.id)
 
-        preview = (
-            f"<b>📋 Превью поста:</b>\n\n"
-            f"{translated_text}\n\n"
-            f"{'🖼️ Изображения: ' + str(len(photo_file_ids)) + ' шт.' if photo_file_ids else ''}\n\n"
-            f"<code>/post</code> — опубликовать\n"
-            f"<code>/skip</code> — отменить"
+        from bot.handlers.preview_ui import preview_text, preview_keyboard
+        await message.answer(
+            preview_text(pending, "m"),
+            reply_markup=preview_keyboard("m", message.from_user.id, pending.active_mode),
         )
-        await message.answer(preview)
 
     await aggregator.add(message, process_group)

@@ -25,6 +25,8 @@ class PendingPost:
     original_text: str
     translated_text: str
     photo_file_ids: list[str] = field(default_factory=list)
+    active_text: str = ""
+    active_mode: str = "translated"
 
 
 @dataclass
@@ -34,3 +36,5 @@ class Approval:
     original_text: str
     translated_text: str
     photo_file_ids: list[str] = field(default_factory=list)
+    active_text: str = ""
+    active_mode: str = "translated"
