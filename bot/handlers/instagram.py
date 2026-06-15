@@ -13,7 +13,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from services.crypto import Crypto
-from services.instagram import InstagramClient
+from services.instagram import InstagramClient, clean_totp_secret
 from services.storage import Storage
 
 router = Router()
@@ -66,14 +66,30 @@ async def cmd_iglogin(
     if len(parts) < 3:
         await message.answer(
             "❌ Использование: <code>/iglogin логин пароль [totp_секрет]</code>\n\n"
-            "TOTP-секрет — опционально, только если включена 2FA через приложение "
-            "(Authenticator). Это base32-секрет из QR-кода."
+            "<b>totp_секрет</b> — только если включена 2FA через приложение (Authenticator).\n"
+            "Это <b>base32-строка</b> (только буквы A-Z и цифры 2-7, ~16-32 символа),\n"
+            "которую Instagram показывает текстом при включении 2FA.\n\n"
+            "❌ НЕ подходит: 6-значные коды, картинка QR, резервные коды, ссылка otpauth.\n\n"
+            "Если секрета нет — войдите без 2FA: <code>/igsession КУКА</code>"
         )
         return
 
     username = parts[1]
     password = parts[2]
     totp_secret = parts[3].strip() if len(parts) == 4 else None
+
+    # Validate/normalize the TOTP secret up front with a clear message.
+    if totp_secret:
+        try:
+            totp_secret = clean_totp_secret(totp_secret)
+        except ValueError as e:
+            await message.answer(
+                f"❌ TOTP-секрет некорректен ({e}).\n\n"
+                "Нужна base32-строка (только A-Z и 2-7, ~16-32 символа), которую "
+                "Instagram показывает текстом при включении 2FA.\n\n"
+                "Если секрета нет — используйте <code>/igsession КУКА</code> (вход без 2FA)."
+            )
+            return
 
     # Delete the message so the password doesn't stay in chat history.
     try:

@@ -7,6 +7,7 @@ bridged to a Telegram FSM through an in-memory future registry).
 import asyncio
 import logging
 import os
+import re
 from typing import Optional
 
 import pyotp
@@ -15,6 +16,30 @@ from instagrapi import Client
 from services.crypto import Crypto
 
 logger = logging.getLogger(__name__)
+
+
+def clean_totp_secret(raw: str) -> str:
+    """Normalize + validate a base32 TOTP secret.
+
+    Handles common paste mistakes: surrounding spaces, the otpauth:// URI,
+    Instagram's space-grouped display. Raises ValueError with a short reason
+    if the result isn't valid base32.
+    """
+    if not raw:
+        raise ValueError("пустой секрет")
+    s = raw.strip()
+    # Extract from an otpauth://totp/...?secret=XXX URI if pasted wholesale.
+    m = re.search(r"[?&]secret=([A-Za-z0-9]+)", s)
+    if m:
+        s = m.group(1)
+    # Drop spaces/tabs (Instagram groups the secret with spaces).
+    s = re.sub(r"[\s]+", "", s).upper()
+    # Must be base32 alphabet (A-Z, 2-7), optional '=' padding.
+    if not re.fullmatch(r"[A-Z2-7]+=*", s):
+        raise ValueError("не base32 (допустимы только A-Z и 2-7)")
+    # Pad to a multiple of 8 so b32decode doesn't choke on "Incorrect padding".
+    s = s + "=" * (-len(s) % 8)
+    return s
 
 
 class InstagramClient:
