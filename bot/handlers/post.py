@@ -16,11 +16,12 @@ async def cmd_preview(message: types.Message, storage: Storage) -> None:
     if pending is None:
         await message.answer("❌ Нет отложенного поста. Перешлите сообщение боту.")
         return
+    user = await storage.get_user(message.from_user.id)
 
     from bot.handlers.preview_ui import preview_text, preview_keyboard
     await message.answer(
         preview_text(pending, "m"),
-        reply_markup=preview_keyboard("m", message.from_user.id, pending.active_mode),
+        reply_markup=preview_keyboard("m", message.from_user.id, pending, user),
     )
 
 
@@ -49,7 +50,11 @@ async def cmd_post(
     await message.answer("⏳ Публикую...")
 
     results = await publisher.publish_to_all(
-        user, pending.active_text or pending.translated_text, pending.photo_file_ids
+        user,
+        pending.active_text or pending.translated_text,
+        pending.photo_file_ids,
+        li_enabled=pending.li_enabled,
+        ig_enabled=pending.ig_enabled,
     )
 
     if any(r.ok for r in results):

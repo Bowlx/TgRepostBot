@@ -77,7 +77,29 @@
       "Bash(python -c \"from bot.main import main; from bot.handlers.preview_ui import router, preview_keyboard, preview_text; print\\('IMPORT OK'\\)\")",
       "Bash(python -m py_compile bot/handlers/preview_ui.py)",
       "Bash(python -c \"from bot.handlers.preview_ui import router, preview_keyboard; print\\('OK'\\); kb = preview_keyboard\\('m', 1, 'custom'\\); print\\('custom rows:', len\\(kb.inline_keyboard\\)\\); kb2 = preview_keyboard\\('m', 1, 'translated'\\); print\\('translated rows:', len\\(kb2.inline_keyboard\\)\\)\")",
-      "Bash(python -m py_compile services/instagram.py bot/handlers/instagram.py)"
+      "Bash(python -m py_compile services/instagram.py bot/handlers/instagram.py)",
+      "Bash(command -v sshpass)",
+      "Bash(sshpass -V)",
+      "Bash(command -v plink)",
+      "Bash(plink -V)",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o BatchMode=yes mikhanil@93.100.238.49 'echo \"=== whoami ===\"; whoami; echo \"=== bot dir ===\"; ls -la /mnt/docker/crosspostlibot/ 2>/dev/null; echo \"=== git state ===\"; cd /mnt/docker/crosspostlibot/ 2>/dev/null && git remote -v 2>/dev/null && git log --oneline -3 2>/dev/null; echo \"=== docker access ===\"; docker ps --format \"{{.Names}}: {{.Status}}\" 2>/dev/null || echo \"docker needs sudo / no access\"')",
+      "Bash(timeout 10 bash -c \"cat < /dev/null > /dev/tcp/93.100.238.49/13322\")",
+      "Bash(timeout 10 bash -c \"cat < /dev/null > /dev/tcp/93.100.238.49/22\")",
+      "Bash(curl -s --max-time 8 ifconfig.me)",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o BatchMode=yes mikhanil@93.100.238.49 'echo CONNECTED; whoami')",
+      "Bash(timeout 12 bash -c \"cat < /dev/null > /dev/tcp/93.100.238.49/13322\")",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o BatchMode=yes mikhanil@93.100.238.49 'echo CONNECTED as $\\(whoami\\); uname -a')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && echo \"=== dir ===\"; ls -1A; echo \"=== git ===\"; git remote -v 2>/dev/null; git log --oneline -3 2>/dev/null; echo \"=== .env keys \\(masked\\) ===\"; sed -E \"s/=.*/=***/\" .env 2>/dev/null; echo \"=== docker ===\"; docker ps --format \"{{.Names}}: {{.Status}}\" 2>&1 | head; echo \"=== docker compose file? ===\"; ls docker-compose.yml compose.yaml 2>/dev/null')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && echo \"=== compose services \\(sanity: only bot\\) ===\" && grep -E \"^\\\\s{2}\\\\w+:$\" docker-compose.yml && echo \"=== git pull ===\" && git pull --ff-only 2>&1 | tail -3 && echo \"=== rebuild + restart bot only ===\" && docker compose up -d --build 2>&1 | tail -4')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && echo \"=== compose.yml ===\" && cat docker-compose.yml')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && git pull --ff-only 2>&1 | tail -3; echo \"=== build ===\"; docker compose up -d --build 2>&1 | tail -5')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && echo \"=== git status ===\" && git status && echo \"=== diff \\(what changed locally\\) ===\" && git diff --stat')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && echo \"=== diff ignoring CR/EOL ===\"; git diff --ignore-cr-at-eol --stat; echo \"=== \\(empty above = pure line-ending noise\\) ===\"; echo \"=== autocrlf setting ===\"; git config --get core.autocrlf || echo \"\\(unset\\)\"; echo \"=== sample: does a file have CRLF? ===\"; file bot/main.py; cat -A bot/main.py | head -2')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && git -c core.whitespace=cr-at-eol diff docker-compose.yml')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'set -e; cd /mnt/docker/crosspostlibot/ && echo \"=== 1. backup customized compose ===\" && cp docker-compose.yml /tmp/crosspostlibot-compose.yml && echo \"ok\" && echo \"=== 2. discard CRLF noise \\(tracked files only; .env + bot-data/ untouched\\) ===\" && git checkout -- . && git status --short && echo \"\\(clean above\\)\" && echo \"=== 3. pull ===\" && git pull --ff-only 2>&1 | tail -3 && echo \"=== 4. restore their compose ===\" && cp /tmp/crosspostlibot-compose.yml docker-compose.yml && echo \"restored; network_mode present:\" && grep -c network_mode docker-compose.yml')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'cd /mnt/docker/crosspostlibot/ && echo \"=== build + restart bot ===\" && docker compose up -d --build 2>&1 | tail -4 && sleep 7 && echo \"=== status ===\" && docker ps --filter name=tgrepostbot --format \"{{.Names}}: {{.Status}}\" && echo \"=== version ===\" && git log --oneline -1 && echo \"=== logs ===\" && docker logs tgrepostbot 2>&1 | tail -6')",
+      "Bash(ssh -p 13322 -i ~/.ssh/server_key mikhanil@93.100.238.49 'echo \"=== bot logs ===\"; docker logs tgrepostbot 2>&1 | tail -4; echo \"=== other services intact \\(unchanged uptimes\\) ===\"; docker ps --format \"{{.Names}}: {{.Status}}\" | grep -vE \"tgrepostbot\" | head -6')",
+      "Bash(python -m py_compile models.py services/storage.py services/publisher.py bot/handlers/preview_ui.py bot/handlers/forward.py bot/handlers/channel.py bot/handlers/post.py)"
     ]
   }
 }

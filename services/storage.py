@@ -65,7 +65,9 @@ class Storage:
                     translated_text TEXT NOT NULL,
                     photo_file_ids TEXT NOT NULL DEFAULT '[]',
                     active_text TEXT NOT NULL DEFAULT '',
-                    active_mode TEXT NOT NULL DEFAULT 'translated'
+                    active_mode TEXT NOT NULL DEFAULT 'translated',
+                    li_enabled INTEGER NOT NULL DEFAULT 1,
+                    ig_enabled INTEGER NOT NULL DEFAULT 1
                 )
                 """
             )
@@ -78,15 +80,19 @@ class Storage:
                     translated_text TEXT NOT NULL,
                     photo_file_ids TEXT NOT NULL DEFAULT '[]',
                     active_text TEXT NOT NULL DEFAULT '',
-                    active_mode TEXT NOT NULL DEFAULT 'translated'
+                    active_mode TEXT NOT NULL DEFAULT 'translated',
+                    li_enabled INTEGER NOT NULL DEFAULT 1,
+                    ig_enabled INTEGER NOT NULL DEFAULT 1
                 )
                 """
             )
-            # Migrations: add active_text/active_mode to existing pending tables.
+            # Migrations: add per-post columns to existing pending tables.
             for table in ("pending_posts", "pending_approvals"):
                 for col, decl in [
                     ("active_text", "TEXT NOT NULL DEFAULT ''"),
                     ("active_mode", "TEXT NOT NULL DEFAULT 'translated'"),
+                    ("li_enabled", "INTEGER NOT NULL DEFAULT 1"),
+                    ("ig_enabled", "INTEGER NOT NULL DEFAULT 1"),
                 ]:
                     try:
                         await db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
@@ -256,7 +262,7 @@ class Storage:
             )
             await db.commit()
 
-    async def save_pending_post(self, user_id: int, original_text: str, translated_text: str, photo_file_ids: list[str]) -> None:
+    async def save_pending_post(self, user_id: int, original_text: str, translated_text: str, photo_file_ids: list[str], li_enabled: bool = True, ig_enabled: bool = True) -> None:
         # Default active text = the translated version (falls back to original if empty).
         active_text = translated_text or original_text
         active_mode = "translated" if (translated_text and translated_text != original_text) else "original"
@@ -264,10 +270,11 @@ class Storage:
             await db.execute(
                 """
                 INSERT OR REPLACE INTO pending_posts
-                    (user_id, original_text, translated_text, photo_file_ids, active_text, active_mode)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (user_id, original_text, translated_text, photo_file_ids, active_text, active_mode, li_enabled, ig_enabled)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, original_text, translated_text, json.dumps(photo_file_ids), active_text, active_mode),
+                (user_id, original_text, translated_text, json.dumps(photo_file_ids), active_text, active_mode,
+                 1 if li_enabled else 0, 1 if ig_enabled else 0),
             )
             await db.commit()
 
@@ -287,6 +294,8 @@ class Storage:
                 photo_file_ids=json.loads(row["photo_file_ids"]),
                 active_text=row["active_text"],
                 active_mode=row["active_mode"],
+                li_enabled=bool(row["li_enabled"]),
+                ig_enabled=bool(row["ig_enabled"]),
             )
 
     async def delete_pending_post(self, user_id: int) -> None:
@@ -328,7 +337,7 @@ class Storage:
     # ── Approval queue (auto-mode approval gate) ─────────────
 
     async def create_approval(
-        self, user_id: int, original_text: str, translated_text: str, photo_file_ids: list[str]
+        self, user_id: int, original_text: str, translated_text: str, photo_file_ids: list[str], li_enabled: bool = True, ig_enabled: bool = True
     ) -> int:
         active_text = translated_text or original_text
         active_mode = "translated" if (translated_text and translated_text != original_text) else "original"
@@ -336,10 +345,11 @@ class Storage:
             cursor = await db.execute(
                 """
                 INSERT INTO pending_approvals
-                    (user_id, original_text, translated_text, photo_file_ids, active_text, active_mode)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (user_id, original_text, translated_text, photo_file_ids, active_text, active_mode, li_enabled, ig_enabled)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, original_text, translated_text, json.dumps(photo_file_ids), active_text, active_mode),
+                (user_id, original_text, translated_text, json.dumps(photo_file_ids), active_text, active_mode,
+                 1 if li_enabled else 0, 1 if ig_enabled else 0),
             )
             await db.commit()
             return cursor.lastrowid
@@ -361,6 +371,8 @@ class Storage:
                 photo_file_ids=json.loads(row["photo_file_ids"]),
                 active_text=row["active_text"],
                 active_mode=row["active_mode"],
+                li_enabled=bool(row["li_enabled"]),
+                ig_enabled=bool(row["ig_enabled"]),
             )
 
     async def set_pending_active(self, user_id: int, mode: str, text: str) -> None:
@@ -376,6 +388,24 @@ class Storage:
             await db.execute(
                 "UPDATE pending_approvals SET active_mode = ?, active_text = ? WHERE id = ?",
                 (mode, text, approval_id),
+            )
+            await db.commit()
+
+    async def set_pending_dest(self, user_id: int, dest: str, enabled: bool) -> None:
+        col = "li_enabled" if dest == "li" else "ig_enabled"
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                f"UPDATE pending_posts SET {col} = ? WHERE user_id = ?",
+                (1 if enabled else 0, user_id),
+            )
+            await db.commit()
+
+    async def set_approval_dest(self, approval_id: int, dest: str, enabled: bool) -> None:
+        col = "li_enabled" if dest == "li" else "ig_enabled"
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                f"UPDATE pending_approvals SET {col} = ? WHERE id = ?",
+                (1 if enabled else 0, approval_id),
             )
             await db.commit()
 

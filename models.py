@@ -27,6 +27,8 @@ class PendingPost:
     photo_file_ids: list[str] = field(default_factory=list)
     active_text: str = ""
     active_mode: str = "translated"
+    li_enabled: bool = True
+    ig_enabled: bool = True
 
 
 @dataclass
@@ -38,3 +40,5 @@ class Approval:
     photo_file_ids: list[str] = field(default_factory=list)
     active_text: str = ""
     active_mode: str = "translated"
+    li_enabled: bool = True
+    ig_enabled: bool = True

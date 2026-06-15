@@ -38,14 +38,22 @@ class Publisher:
         user: User,
         text: str,
         photo_file_ids: list[str],
+        li_enabled: bool | None = None,
+        ig_enabled: bool | None = None,
     ) -> list[DestResult]:
         results: list[DestResult] = []
+
+        # Per-post overrides default to the user's global toggles.
+        if li_enabled is None:
+            li_enabled = user.linkedin_enabled
+        if ig_enabled is None:
+            ig_enabled = user.instagram_enabled
 
         # Download each photo to a temp file ONCE; both destinations reuse the paths.
         temp_paths = await self._download_photos(photo_file_ids)
         try:
-            results.append(await self._publish_linkedin(user, text, temp_paths))
-            results.append(await self._publish_instagram(user, text, temp_paths))
+            results.append(await self._publish_linkedin(user, text, temp_paths, li_enabled))
+            results.append(await self._publish_instagram(user, text, temp_paths, ig_enabled))
         finally:
             for path in temp_paths:
                 try:
@@ -70,11 +78,11 @@ class Publisher:
         return paths
 
     async def _publish_linkedin(
-        self, user: User, text: str, photo_paths: list[str]
+        self, user: User, text: str, photo_paths: list[str], enabled: bool
     ) -> DestResult:
         if not user.linkedin_access_token or not user.linkedin_person_urn:
             return DestResult("LinkedIn", False, "не подключён", skipped=True)
-        if not user.linkedin_enabled:
+        if not enabled:
             return DestResult("LinkedIn", False, "пауза", skipped=True)
 
         image_urns: list[str] = []
@@ -100,7 +108,7 @@ class Publisher:
             return DestResult("LinkedIn", False, str(e))
 
     async def _publish_instagram(
-        self, user: User, text: str, photo_paths: list[str]
+        self, user: User, text: str, photo_paths: list[str], enabled: bool
     ) -> DestResult:
         ig_password_mode = bool(
             user.instagram_username and user.instagram_password_encrypted
@@ -108,7 +116,7 @@ class Publisher:
         ig_session_mode = bool(user.instagram_sessionid_encrypted)
         if not (ig_password_mode or ig_session_mode):
             return DestResult("Instagram", False, "не подключён", skipped=True)
-        if not user.instagram_enabled:
+        if not enabled:
             return DestResult("Instagram", False, "пауза", skipped=True)
         if not photo_paths:
             # Instagram has no text-only posts — skip gracefully.

@@ -51,7 +51,9 @@ async def handle_channel_post(
 
             if user.approve_enabled:
                 approval_id = await storage.create_approval(
-                    user.user_id, original_text, text, photo_file_ids
+                    user.user_id, original_text, text, photo_file_ids,
+                    li_enabled=user.linkedin_enabled,
+                    ig_enabled=user.instagram_enabled,
                 )
                 approval = await storage.get_approval(approval_id)
                 from bot.handlers.preview_ui import preview_text, preview_keyboard
@@ -59,7 +61,7 @@ async def handle_channel_post(
                     await bot.send_message(
                         user.user_id,
                         preview_text(approval, "a"),
-                        reply_markup=preview_keyboard("a", approval_id, approval.active_mode),
+                        reply_markup=preview_keyboard("a", approval_id, approval, user),
                     )
                 except Exception as e:
                     logger.error(f"Failed to send approval DM to {user.user_id}: {e}")

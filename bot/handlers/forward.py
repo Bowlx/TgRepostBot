@@ -50,19 +50,22 @@ async def handle_forwarded(
                     f"⚠️ Ошибка перевода: {e}\n\nПост будет опубликован без перевода."
                 )
 
-        # Store as a single pending post (whole album combined)
+        # Store as a single pending post (whole album combined).
+        # Per-post destination flags inherit the user's global toggles.
         await storage.save_pending_post(
             user_id=message.from_user.id,
             original_text=text,
             translated_text=translated_text,
             photo_file_ids=photo_file_ids,
+            li_enabled=user.linkedin_enabled,
+            ig_enabled=user.instagram_enabled,
         )
         pending = await storage.get_pending_post(message.from_user.id)
 
         from bot.handlers.preview_ui import preview_text, preview_keyboard
         await message.answer(
             preview_text(pending, "m"),
-            reply_markup=preview_keyboard("m", message.from_user.id, pending.active_mode),
+            reply_markup=preview_keyboard("m", message.from_user.id, pending, user),
         )
 
     await aggregator.add(message, process_group)
