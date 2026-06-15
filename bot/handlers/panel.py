@@ -13,6 +13,7 @@ import logging
 
 from aiogram import Router, types, F
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from services.storage import Storage
@@ -109,6 +110,7 @@ async def cb_refresh(callback: types.CallbackQuery, storage: Storage) -> None:
 @router.callback_query(F.data == "panel:li")
 async def cb_li(
     callback: types.CallbackQuery,
+    state: FSMContext,
     storage: Storage,
     linkedin_client: LinkedInClient,
 ) -> None:
@@ -120,9 +122,10 @@ async def cb_li(
         await callback.answer()
         return
 
-    # Not connected → guide to auth (or setup first).
+    # Not connected.
     settings = await storage.get_all_settings()
     if settings.get("linkedin_client_id"):
+        # App configured → guide to OAuth.
         try:
             url = await linkedin_client.get_auth_url()
             kb = InlineKeyboardMarkup(
@@ -136,9 +139,12 @@ async def cb_li(
         except Exception as e:
             await callback.message.answer(f"❌ {e}")
     else:
+        # App not configured → start the 3-step setup wizard right here.
+        from bot.handlers.setup import _ask_linkedin_client_id
         await callback.message.answer(
-            "Сначала настройте LinkedIn App командой /setup (3 шага)."
+            "LinkedIn App ещё не настроен — пройдём за 3 шага 👇"
         )
+        await _ask_linkedin_client_id(callback.message, state)
     await callback.answer()
 
 

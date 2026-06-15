@@ -69,7 +69,8 @@
       "Read(//c/Users/Ya/.claude/projects/C--Users-Ya/memory/**)",
       "Bash(python -m py_compile bot/main.py bot/handlers/start.py)",
       "Bash(python -m py_compile bot/handlers/panel.py bot/handlers/start.py bot/main.py)",
-      "Bash(python -c \"from bot.main import main; from bot.handlers.panel import router; print\\('IMPORT OK'\\)\")"
+      "Bash(python -c \"from bot.main import main; from bot.handlers.panel import router; print\\('IMPORT OK'\\)\")",
+      "Bash(python -m py_compile bot/handlers/panel.py bot/handlers/start.py)"
     ]
   }
 }
