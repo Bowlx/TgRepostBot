@@ -30,7 +30,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
         )
         await message.answer(
             f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
-            f"Я бот для кросспостинга из Telegram в LinkedIn с переводом.\n\n"
+            f"Я бот для кросспостинга из Telegram в LinkedIn и Instagram (с переводом).\n\n"
             f"⚠️ <b>Нужно настроить LinkedIn App.</b>\n"
             f"Нажмите кнопку ниже — я проведу вас пошагово (3 шага) 👇",
             reply_markup=keyboard,
@@ -40,7 +40,7 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
     # All configured — show status
     welcome = (
         f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
-        f"Я бот для кросспостинга из Telegram в LinkedIn с переводом.\n\n"
+        f"Я бот для кросспостинга из Telegram в LinkedIn и Instagram (с переводом).\n\n"
         f"<b>📋 Статус:</b>\n"
         f"🌐 Переводчик: Google ✅\n"
         f"💼 LinkedIn: {'✅ ' + ('вкл' if user.linkedin_enabled else 'пауза') if has_linkedin_app else '❌ не настроен'}\n"
@@ -60,9 +60,10 @@ async def cmd_start(message: types.Message, storage: Storage) -> None:
     else:
         welcome += (
             "<b>Команды:</b>\n"
-            "• Перешлите пост — перевод + превью\n"
+            "• Перешлите пост — превью (с переводом, если вкл)\n"
             "• <code>/post</code> — опубликовать во все destination\n"
             "• <code>/iglogin логин пароль [totp]</code> — подключить Instagram\n"
+            "• <code>/igsession КУКА</code> — Instagram по sessionid\n"
             "• <code>/linkedin on|off</code> · <code>/instagram on|off</code> — пауза\n"
             "• <code>/destinations</code> — статус куда публикуем\n"
             "• <code>/setlang ru en</code> · <code>/translate off</code>\n"

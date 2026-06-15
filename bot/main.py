@@ -52,14 +52,18 @@ async def _setup_bot_menu(bot: Bot) -> None:
         ]
     )
     await bot.set_my_short_description(
-        "Кросспостинг из Telegram в LinkedIn и Instagram с переводом."
+        "Кросспостинг из Telegram в LinkedIn и Instagram (перевод опционален)."
     )
     await bot.set_my_description(
-        "Пересылайте посты — бот переведёт и опубликует их в LinkedIn и Instagram.\n\n"
-        "Работает в двух режимах:\n"
+        "Пересылайте посты — бот опубликует их в LinkedIn и Instagram "
+        "(переведёт, если включён).\n\n"
+        "Режимы:\n"
         "• Авто — добавьте бота в Telegram-канал\n"
         "• Ручной — перешлите пост и нажмите /post\n\n"
-        "Все настройки — через /start и /setup прямо в чате."
+        "Подключение:\n"
+        "• LinkedIn — /setup, затем /auth\n"
+        "• Instagram — /iglogin (логин/пароль) или /igsession (без пароля)\n\n"
+        "Перевод, подтверждение постов и пауза любой платформы — всё через команды в чате."
     )
 
 

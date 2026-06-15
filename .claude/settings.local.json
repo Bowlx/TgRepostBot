@@ -59,7 +59,15 @@
       "Bash(python -m py_compile models.py services/storage.py)",
       "Bash(python -c \"from services.storage import Storage; print\\('storage OK'\\)\")",
       "Bash(python -m py_compile models.py services/storage.py services/instagram.py services/publisher.py bot/handlers/instagram.py)",
-      "Bash(python -c \"from bot.main import main; print\\('IMPORT OK'\\)\")"
+      "Bash(python -c \"from bot.main import main; print\\('IMPORT OK'\\)\")",
+      "Bash(ls -la \"C:/Users/Ya/.claude/projects/d--work-TgRepostBot/memory/\" 2>/dev/null || echo \"NO MEMORY DIR\")",
+      "Read(//c/Users/Ya/.claude/projects/d--work-TgRepostBot/memory/**)",
+      "Bash(cat ~/.ssh/config 2>/dev/null | head -50 || echo \"NO SSH CONFIG\")",
+      "Read(//c/Users/Ya/.ssh/**)",
+      "Bash(ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new server 'echo \"=== HOSTNAME ===\"; hostname; echo \"=== OS ===\"; cat /etc/os-release 2>/dev/null | grep -E \"PRETTY|VERSION=\"; echo \"=== TZ \\(locale hint\\) ===\"; timedatectl 2>/dev/null | grep -i \"time zone\"; echo \"=== UPTIME ===\"; uptime; echo \"=== DISK ===\"; df -h / | tail -1; echo \"=== MEM ===\"; free -h | head -2')",
+      "Bash(ssh server *)",
+      "Read(//c/Users/Ya/.claude/projects/C--Users-Ya/memory/**)",
+      "Bash(python -m py_compile bot/main.py bot/handlers/start.py)"
     ]
   }
 }
