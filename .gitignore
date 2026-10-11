@@ -3,3 +3,5 @@ data/
 __pycache__/
 *.pyc
 .mcp.json
+.venv/
+.pytest_cache/
